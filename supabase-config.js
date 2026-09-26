@@ -1,0 +1,1 @@
+window.RENETECH_SUPABASE_CONFIG = null;

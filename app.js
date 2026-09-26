@@ -1,9 +1,10 @@
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
 const STORAGE_KEY = 'renetech-learning-v1';
-const SUPABASE_URL = 'https://pissvdasthmlhomogjqz.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_ioiqV1N0a4FVssIjGEDRog_95pD_azE';
-const supabaseClient = window.supabase?.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) || null;
+const supabaseConfig = window.RENETECH_SUPABASE_CONFIG || {};
+const supabaseClient = supabaseConfig.url && supabaseConfig.publishableKey && window.supabase?.createClient
+  ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
+  : null;
 const mc = (prompt, options, answer, explanation) => ({ prompt, options, answer, explanation });
 const tf = (prompt, answer, explanation) => mc(prompt, ['True', 'False'], answer, explanation);
 const fill = (prompt, options, answer, explanation) => mc(prompt, options, answer, explanation);
