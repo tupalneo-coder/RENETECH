@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RENE-TECH | Computer System Servicing</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main class="splash-screen" id="splash-screen">
+    <section class="splash-hero">
+      <div class="splash-copy">
+        <div class="brand splash-brand"><span class="brand-mark">R</span><span>RENE<span>-TECH</span></span></div>
+        <p class="eyebrow">COMPUTER SYSTEM SERVICING</p>
+        <h1>Build it.<br>Fix it.<br><em>Level up.</em></h1>
+        <p class="splash-description">Learn to assemble, maintain, and troubleshoot computer systems through short, hands-on learning paths.</p>
+        <button class="primary-button" type="button" data-enter-app>Enter the learning hub <span>→</span></button>
+      </div>
+      <span class="splash-image-caption">PRACTICE. EARN POINTS. MASTER THE SYSTEM.</span>
+    </section>
+    <div class="splash-footer"><span>RENE-TECH</span><span>Computer System Servicing, one skill at a time.</span></div>
+  </main>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <a class="brand" href="#home" data-view="home" aria-label="RENE-TECH home">
+        <span class="brand-mark">✦</span>
+        <span>RENE<span>-TECH</span></span>
+      </a>
+      <nav class="nav-list">
+        <a class="nav-item active" href="#home" data-view="home"><span class="nav-icon">⌂</span> Home</a>
+        <a class="nav-item" href="#lessons" data-view="lessons"><span class="nav-icon">▤</span> My lessons</a>
+        <a class="nav-item" href="#progress" data-view="progress"><span class="nav-icon">◔</span> Progress</a>
+        <a class="nav-item" href="#leaderboard" data-view="leaderboard"><span class="nav-icon">▥</span> Leaderboard</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="streak-mini"><span class="flame">♨</span><div><strong id="sidebar-streak">7 day streak</strong><small>Keep the spark alive</small></div></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="mobile-menu" type="button" aria-label="Open navigation">☰</button>
+        <div class="crumbs"><span id="page-kicker"></span><span class="crumb-dot">/</span><strong id="page-title">Your learning garden</strong></div>
+        <div class="top-actions">
+          <div class="view-switch" role="group" aria-label="Choose layout">
+            <button type="button" data-layout="desktop" aria-pressed="false">Desktop View</button>
+            <button type="button" data-layout="mobile" aria-pressed="false">Mobile View</button>
+          </div>
+          <button class="sound-toggle" type="button" id="sound-toggle" aria-pressed="false" aria-label="Mute sound">Sound on</button>
+          <div class="avatar" aria-label="Student profile">CSS</div>
+        </div>
+      </header>
+
+      <div class="page-wrap">
+        <section class="view active" id="home-view" data-page="home">
+          <div class="hero reveal">
+            <div class="hero-copy">
+              <p class="eyebrow">COMPUTER SYSTEM SERVICING <span>✦</span></p>
+              <h1>Small steps.<br><em>Stronger systems.</em></h1>
+              <p class="hero-description">Build practical skills in computer assembly, maintenance, and troubleshooting, one focused lesson at a time.</p>
+              <button class="primary-button" type="button" data-start-lesson>Browse lessons <span>→</span></button>
+            </div>
+            <div class="garden-art" aria-label="Illustration of a growing plant">
+              <div class="sun"></div><div class="cloud cloud-one"></div><div class="cloud cloud-two"></div>
+              <div class="plant"><span class="leaf leaf-left"></span><span class="leaf leaf-right"></span><span class="stem"></span><span class="pot"></span></div>
+              <div class="ground"></div>
+            </div>
+          </div>
+
+          <div class="stats-row reveal reveal-delay-1">
+            <article class="stat-card xp-card"><div class="stat-icon">✦</div><div><span class="stat-label">Total points</span><strong id="xp-total">0</strong><small><b id="xp-week">0</b> earned this week</small></div></article>
+            <article class="stat-card streak-card"><div class="stat-icon">♨</div><div><span class="stat-label">Lessons passed</span><strong><span id="streak-total">0</span><span id="passed-total"> / 5</span></strong><small id="passed-message">Pass with 7 out of 10 to unlock the next lesson.</small></div></article>
+            <article class="stat-card progress-card"><div class="stat-icon">◔</div><div><span class="stat-label">Lessons passed</span><strong><span id="goal-percent">0</span>%</strong><small><b id="goal-complete">0 of 5</b> lessons complete</small></div></article>
+          </div>
+
+          <div class="content-grid reveal reveal-delay-2">
+            <section class="panel continue-panel">
+              <div class="panel-heading"><div><p class="eyebrow">PICK UP WHERE YOU LEFT OFF</p><h2>Continue your path</h2></div></div>
+              <div class="lesson-feature">
+                <div class="lesson-illustration cyan-illustration"><span class="shape shape-one"></span><span class="shape shape-two"></span><span class="shape shape-three"></span><span class="illustration-label">SYSTEM<br>ASSEMBLY</span></div>
+                <div class="lesson-details"><span class="tag cyan-tag">YOUR NEXT LESSON</span><h3 id="next-lesson-title">Occupational Health and Safety</h3><p id="next-lesson-description">Learn the habits that keep you and computer components safe.</p><div class="lesson-meta"><span id="next-lesson-number">Lesson 1 of 4</span><span>10 questions</span></div><button class="secondary-button" type="button" data-start-lesson="0">Start lesson <span>→</span></button></div>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="lessons-view" data-page="lessons">
+          <div class="section-intro"><div><p class="eyebrow">YOUR CURRICULUM</p><h1>My lessons</h1><p>Pass each lesson to unlock the next. Replay passed lessons to earn more points.</p></div><div class="lesson-count"><strong id="lesson-count">4</strong><span>lessons</span></div></div>
+          <div class="filter-row"><div class="lesson-tabs"><button class="lesson-tab active" type="button" data-filter="all">All lessons</button><button class="lesson-tab" type="button" data-filter="in-progress">Available</button><button class="lesson-tab" type="button" data-filter="completed">Passed</button></div></div>
+          <div class="lesson-list" id="lesson-list"></div>
+        </section>
+
+        <section class="view" id="progress-view" data-page="progress">
+          <div class="section-intro"><div><p class="eyebrow">YOUR MOMENTUM</p><h1>Progress report</h1><p>A clear view of the habits turning into real skills.</p></div><div class="level-badge"><span id="progress-level-badge">LEVEL 1</span><strong>Curious builder</strong></div></div>
+          <div class="progress-dashboard"><section class="panel big-progress"><div class="panel-heading"><div><p class="eyebrow">LEVEL PROGRESS</p><h2>Keep growing</h2></div><span class="level-xp" id="level-xp">0 / 200 points</span></div><div class="big-progress-track"><span id="level-progress-bar" style="width: 0%"></span></div><div class="level-labels"><span id="progress-level-label">Level 1</span><span id="xp-to-next">200 points to level 2</span></div><div class="milestones"><div class="milestone current" data-milestone-xp="100"><span>✦</span><strong>New</strong><small>100 points</small></div><div class="milestone" data-milestone-xp="500"><span>✦</span><strong>Intermediate</strong><small>500 points</small></div><div class="milestone" data-milestone-xp="1000"><span>✦</span><strong>Dedicated</strong><small>1,000 points</small></div><div class="milestone" data-milestone-xp="2000"><span>✦</span><strong>Goated</strong><small>2,000 points</small></div></div></section><section class="panel habits-panel"><p class="eyebrow">HABIT SCORE</p><h2>Showing up is a skill.</h2><div class="habit-score"><strong id="habit-score">70</strong><span>/ 100</span></div><p id="habit-summary">You have passed 0 of 4 lessons. Keep building your skills.</p><div class="mini-bars"><i style="height: 45%"></i><i style="height: 60%"></i><i style="height: 50%"></i><i style="height: 72%"></i><i style="height: 62%"></i><i style="height: 88%"></i><i style="height: 78%"></i></div></section></div>
+        </section>
+
+        <section class="view" id="leaderboard-view" data-page="leaderboard">
+          <div class="section-intro"><div><p class="eyebrow">POINTS RACE</p><h1>Leaderboard</h1><p>Compare total points earned across lesson attempts.</p></div><button class="secondary-button leaderboard-refresh" id="leaderboard-refresh" type="button" aria-label="Refresh leaderboard">↻ Refresh</button></div>
+          <div class="leaderboard-panel" id="leaderboard-content"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="lesson-flow" id="lesson-flow" hidden aria-modal="true" role="dialog" aria-labelledby="flow-title">
+    <div class="lesson-flow-panel"><button class="flow-close" id="flow-close" type="button" aria-label="Close lesson">×</button><div id="lesson-flow-content"></div></div>
+  </div>
+  <audio id="lesson-pass-sound" src="audio/258142__tuudurt__level-win.wav" preload="none"></audio>
+  <audio id="lesson-fail-sound" src="audio/752706__nox_sound__voice_crowd_small_expression_awww_stereo.wav" preload="none"></audio>
+  <div class="toast" role="status" aria-live="polite"><span>✦</span><span id="toast-message">Nice work. Keep growing!</span></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
