@@ -1,1 +1,1 @@
-window.RENETECH_SUPABASE_CONFIG = null;
+window.BENCHMARK_SUPABASE_CONFIG = null;

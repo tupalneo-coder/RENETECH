@@ -3,14 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RENE-TECH | Computer System Servicing</title>
+  <title>Benchmark | Computer System Servicing</title>
+  <meta name="description" content="Build practical Computer System Servicing skills with Benchmark.">
+  <meta name="theme-color" content="#173b75">
+  <link rel="icon" type="image/png" href="assets/logo/Teal Circuit B with Orange Growth Bars.png">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
   <main class="splash-screen" id="splash-screen">
     <section class="splash-hero">
       <div class="splash-copy">
-        <div class="brand splash-brand"><span class="brand-mark">R</span><span>RENE<span>-TECH</span></span></div>
+        <div class="brand splash-brand"><img class="brand-logo" src="assets/logo/Teal Circuit B with Orange Growth Bars.png" alt=""><span>Benchmark</span></div>
         <p class="eyebrow">COMPUTER SYSTEM SERVICING</p>
         <h1>Build it.<br>Fix it.<br><em>Level up.</em></h1>
         <p class="splash-description">Learn to assemble, maintain, and troubleshoot computer systems through short, hands-on learning paths.</p>
@@ -18,19 +21,20 @@
       </div>
       <span class="splash-image-caption">PRACTICE. EARN POINTS. MASTER THE SYSTEM.</span>
     </section>
-    <div class="splash-footer"><span>RENE-TECH</span><span>Computer System Servicing, one skill at a time.</span></div>
+    <div class="splash-footer"><span>Benchmark</span><span>Computer System Servicing, one skill at a time.</span></div>
   </main>
   <div class="app-shell">
     <aside class="sidebar" aria-label="Main navigation">
-      <a class="brand" href="#home" data-view="home" aria-label="RENE-TECH home">
-        <span class="brand-mark">✦</span>
-        <span>RENE<span>-TECH</span></span>
+      <a class="brand" href="#home" data-view="home" aria-label="Benchmark home">
+        <img class="brand-logo" src="assets/logo/Teal Circuit B with Orange Growth Bars.png" alt="">
+        <span>Benchmark</span>
       </a>
       <nav class="nav-list">
         <a class="nav-item active" href="#home" data-view="home"><span class="nav-icon">⌂</span> Home</a>
         <a class="nav-item" href="#lessons" data-view="lessons"><span class="nav-icon">▤</span> Play</a>
         <a class="nav-item" href="#progress" data-view="progress"><span class="nav-icon">◔</span> Progress</a>
         <a class="nav-item" href="#leaderboard" data-view="leaderboard"><span class="nav-icon">▥</span> Leaderboard</a>
+        <a class="nav-item" href="#settings" data-view="settings"><span class="nav-icon">⚙</span> Settings</a>
       </nav>
       <div class="sidebar-footer">
         <div class="streak-mini"><span class="flame">♨</span><div><strong id="sidebar-streak">7 day streak</strong><small>Keep the spark alive</small></div></div>
@@ -46,8 +50,7 @@
             <button type="button" data-layout="desktop" aria-pressed="false">Desktop View</button>
             <button type="button" data-layout="mobile" aria-pressed="false">Mobile View</button>
           </div>
-          <button class="sound-toggle" type="button" id="sound-toggle" aria-pressed="false" aria-label="Mute sound">Sound on</button>
-          <div class="avatar" aria-label="Student profile">CSS</div>
+          <div class="avatar avatar-sprite" id="header-avatar" data-avatar="badge-1" role="img" aria-label="Student avatar"></div>
         </div>
       </header>
 
@@ -70,7 +73,7 @@
           <div class="stats-row reveal reveal-delay-1">
             <article class="stat-card xp-card"><div class="stat-icon">✦</div><div><span class="stat-label">Total points</span><strong id="xp-total">0</strong><small><b id="xp-week">0</b> earned this week</small></div></article>
             <article class="stat-card streak-card"><div class="stat-icon">♨</div><div><span class="stat-label">Levels passed</span><strong><span id="streak-total">0</span><span id="passed-total"> / 5</span></strong><small id="passed-message">Pass with 7 out of 10 to unlock the next level.</small></div></article>
-            <article class="stat-card progress-card"><div class="stat-icon">◔</div><div><span class="stat-label">Levels passed</span><strong><span id="goal-percent">0</span>%</strong><small><b id="goal-complete">0 of 5</b> levels complete</small></div></article>
+            <article class="stat-card progress-card"><div class="stat-icon">◔</div><div><span class="stat-label">Level completion</span><strong><span id="goal-percent">0</span>%</strong><small><b id="goal-complete">0 of 5</b> levels complete</small></div></article>
           </div>
 
           <div class="content-grid reveal reveal-delay-2">
@@ -86,6 +89,7 @@
 
         <section class="view" id="lessons-view" data-page="lessons">
           <div class="section-intro"><div><p class="eyebrow">YOUR CURRICULUM</p><h1>Play</h1><p>Pass each level to unlock the next. Replay passed levels to earn more points.</p></div><div class="lesson-count"><strong id="lesson-count">5</strong><span>levels</span></div></div>
+          <section class="timed-challenge-card panel"><div><p class="eyebrow">60-SECOND MODE</p><h2>Timed Challenge</h2><p>Answer as many questions as you can. Earn a one-time bonus for your highest correct-answer tier.</p></div><button class="primary-button" id="timed-challenge-start" type="button">Start challenge <span>→</span></button></section>
           <div class="filter-row"><div class="lesson-tabs"><button class="lesson-tab active" type="button" data-filter="all">All levels</button><button class="lesson-tab" type="button" data-filter="in-progress">Available</button><button class="lesson-tab" type="button" data-filter="completed">Passed</button></div></div>
           <div class="lesson-list" id="lesson-list"></div>
         </section>
@@ -93,11 +97,22 @@
         <section class="view" id="progress-view" data-page="progress">
           <div class="section-intro"><div><p class="eyebrow">YOUR MOMENTUM</p><h1>Progress report</h1><p>A clear view of the habits turning into real skills.</p></div><div class="level-badge"><span id="progress-level-badge">LEVEL 1</span><strong>Curious builder</strong></div></div>
           <div class="progress-dashboard"><section class="panel big-progress"><div class="panel-heading"><div><p class="eyebrow">LEVEL PROGRESS</p><h2>Keep growing</h2></div><span class="level-xp" id="level-xp">0 / 10 points</span></div><div class="big-progress-track"><span id="level-progress-bar" style="width: 0%"></span></div><div class="level-labels"><span id="progress-level-label">Level 1</span><span id="xp-to-next">10 points to level 2</span></div><div class="progress-rank-report"><div><span class="eyebrow">CURRENT RANK</span><strong id="current-rank">Unranked</strong></div><span id="points-to-next-rank">10 points to New rank</span></div><div class="milestones" id="rank-milestones"></div></section><section class="panel habits-panel"><p class="eyebrow">HABIT SCORE</p><h2>Showing up is a skill.</h2><div class="habit-score"><strong id="habit-score">70</strong><span>/ 100</span></div><p id="habit-summary">You have passed 0 of 5 levels. Keep building your skills.</p><div class="mini-bars"><i style="height: 45%"></i><i style="height: 60%"></i><i style="height: 50%"></i><i style="height: 72%"></i><i style="height: 62%"></i><i style="height: 88%"></i><i style="height: 78%"></i></div></section></div>
+          <section class="panel profile-panel" aria-labelledby="profile-heading"><div class="profile-summary"><div class="avatar avatar-sprite profile-avatar" id="progress-avatar" data-avatar="badge-1" role="img" aria-label="Your selected avatar"></div><div class="profile-details"><p class="eyebrow">PLAYER PROFILE</p><h2 id="profile-heading">Guest</h2><p id="profile-rank">Unranked · 0 points</p><p id="profile-placement">Leaderboard placement: not ranked</p><p id="profile-cosmetic-summary">Leaderboard style: default</p></div><div class="profile-actions"><button class="secondary-button" id="edit-profile" type="button">Edit Profile</button><button class="secondary-button" id="change-avatar" type="button">Change Avatar</button></div></div><div class="profile-editor" id="profile-editor" hidden><label for="profile-display-name">Display name</label><input id="profile-display-name" maxlength="24" autocomplete="nickname"><button class="primary-button" id="save-profile" type="button">Save profile</button></div><div class="avatar-picker" id="avatar-picker" hidden></div></section>
         </section>
 
         <section class="view" id="leaderboard-view" data-page="leaderboard">
           <div class="section-intro"><div><p class="eyebrow">POINTS RACE</p><h1>Leaderboard</h1><p>Compare total points earned across level attempts.</p></div><button class="secondary-button leaderboard-refresh" id="leaderboard-refresh" type="button" aria-label="Refresh leaderboard">↻ Refresh</button></div>
           <div class="leaderboard-panel" id="leaderboard-content"></div>
+        </section>
+
+        <section class="view" id="settings-view" data-page="settings">
+          <div class="section-intro"><div><p class="eyebrow">YOUR PREFERENCES</p><h1>Settings</h1><p>Manage your account, sound, appearance, and leaderboard style.</p></div></div>
+          <div class="settings-grid">
+            <section class="panel settings-panel"><p class="eyebrow">ACCOUNT</p><h2>Sign in or create an account</h2><p id="auth-status">Use a username and password to save your profile and verified scores.</p><form id="auth-form"><label for="auth-username">Username</label><input id="auth-username" name="username" minlength="3" maxlength="24" autocomplete="username" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" minlength="8" autocomplete="current-password" required><div class="settings-actions"><button class="primary-button" id="sign-in" type="submit">Sign in</button><button class="secondary-button" id="sign-up" type="button">Create account</button></div></form><button class="text-button" id="sign-out" type="button" hidden>Sign out</button></section>
+            <section class="panel settings-panel"><p class="eyebrow">SOUND</p><h2>Audio preferences</h2><label class="setting-row" for="master-volume"><span>Master volume</span><output id="volume-value" for="master-volume">70%</output><input id="master-volume" type="range" min="0" max="100" step="1" value="70"></label><label class="setting-row setting-toggle"><span>Sound effects</span><input id="effects-enabled" type="checkbox" checked></label><p class="setting-note">Controls CORRECT, INCORRECT, APPLAUD, and AWW sounds.</p><label class="setting-row setting-toggle" for="music-enabled"><span>Background music</span><input id="music-enabled" type="checkbox" disabled></label><p class="setting-note" id="music-note">Music playback is waiting for the track you said you will provide.</p></section>
+            <section class="panel settings-panel"><p class="eyebrow">APPEARANCE</p><h2>Display</h2><label class="setting-row setting-toggle" for="dark-mode"><span>Dark mode</span><input id="dark-mode" type="checkbox"></label><p class="setting-note">Applies the selected theme throughout the interface.</p></section>
+            <section class="panel settings-panel cosmetics-panel"><p class="eyebrow">LEADERBOARD COSMETICS</p><h2>Customize your entry</h2><p id="cosmetics-status">Sign in to unlock and save leaderboard styles.</p><div id="cosmetics-controls"></div></section>
+          </div>
         </section>
       </div>
     </main>
@@ -106,8 +121,10 @@
     <div class="lesson-flow-panel"><button class="flow-close" id="flow-close" type="button" aria-label="Close level">×</button><div id="lesson-flow-content"></div></div>
     <button class="celebration-overlay" id="celebration-overlay" type="button" hidden aria-label="Skip celebration and continue"></button>
   </div>
-  <audio id="lesson-pass-sound" src="audio/258142__tuudurt__level-win.wav" preload="none"></audio>
-  <audio id="lesson-fail-sound" src="audio/752706__nox_sound__voice_crowd_small_expression_awww_stereo.wav" preload="none"></audio>
+  <audio id="sound-correct" src="assets/sounds/CORRECT.wav" preload="auto"></audio>
+  <audio id="sound-incorrect" src="assets/sounds/INCORRECT.wav" preload="auto"></audio>
+  <audio id="sound-applaud" src="assets/sounds/APPLAUD.wav" preload="auto"></audio>
+  <audio id="sound-aww" src="assets/sounds/AWW.wav" preload="auto"></audio>
   <div class="toast" role="status" aria-live="polite"><span>✦</span><span id="toast-message">Nice work. Keep growing!</span></div>
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

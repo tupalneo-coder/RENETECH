@@ -22,7 +22,7 @@ async function build() {
     copyFile(path.join(projectRoot, 'app.html'), path.join(outputDirectory, 'index.html')),
     copyFile(path.join(projectRoot, 'app.css'), path.join(outputDirectory, 'app.css')),
     copyFile(path.join(projectRoot, 'app.js'), path.join(outputDirectory, 'app.js')),
-    cp(path.join(projectRoot, 'audio'), path.join(outputDirectory, 'audio'), { recursive: true })
+    cp(path.join(projectRoot, 'assets'), path.join(outputDirectory, 'assets'), { recursive: true })
   ]);
 
   const browserConfig = {
@@ -32,7 +32,7 @@ async function build() {
 
   await writeFile(
     path.join(outputDirectory, 'supabase-config.js'),
-    `window.RENETECH_SUPABASE_CONFIG = Object.freeze(${JSON.stringify(browserConfig)});\n`,
+    `window.BENCHMARK_SUPABASE_CONFIG = Object.freeze(${JSON.stringify(browserConfig)});\n`,
     'utf8'
   );
 }

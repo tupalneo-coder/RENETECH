@@ -1,6 +1,7 @@
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const $$ = (selector, parent = document) => [...parent.querySelectorAll(selector)];
-const STORAGE_KEY = 'renetech-learning-v1';
+const STORAGE_KEY = 'benchmark-learning-v1';
+const LEGACY_STORAGE_KEY = 'renetech-learning-v1';
 const CELEBRATION_CONFIG = {
   durationMs: 1500,
   matchingMistakeLimit: 1,
@@ -22,15 +23,7 @@ const CELEBRATION_CONFIG = {
     tier: 'encouraging'
   }
 };
-const FINAL_BOSS_CONFIG = {
-  maxHealth: 1000,
-  damagePerCorrect: 50,
-  difficulties: {
-    easy: { label: 'Easy', durationSeconds: 180, bonusPoints: 20 },
-    medium: { label: 'Medium', durationSeconds: 120, bonusPoints: 25 },
-    hard: { label: 'Hard', durationSeconds: 60, bonusPoints: 30 }
-  }
-};
+const TIMED_CHALLENGE_SECONDS = 60;
 const RANK_THRESHOLDS = [
   { name: 'New', points: 10 },
   { name: 'Intermediate', points: 50 },
@@ -39,7 +32,7 @@ const RANK_THRESHOLDS = [
   { name: 'Goat', points: 1000 }
 ];
 const randomChoice = values => values[Math.floor(Math.random() * values.length)];
-const supabaseConfig = window.RENETECH_SUPABASE_CONFIG || {};
+const supabaseConfig = window.BENCHMARK_SUPABASE_CONFIG || {};
 const supabaseClient = supabaseConfig.url && supabaseConfig.publishableKey && window.supabase?.createClient
   ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
   : null;
@@ -181,7 +174,12 @@ const lessons = [
     ]
   }
 ];
-const FINAL_BOSS_QUESTION_POOL = lessons.flatMap(lesson => lesson.questions);
+lessons.forEach((lesson, lessonIndex) => {
+  lesson.questions.forEach((question, questionIndex) => {
+    question.id = `l${lessonIndex}q${questionIndex}`;
+  });
+});
+const QUESTION_POOL = lessons.flatMap(lesson => lesson.questions);
 
 function levelForPoints(points) {
   return Math.floor(Math.max(0, points) / 10) + 1;
@@ -192,7 +190,7 @@ function rankForPoints(points) {
 }
 
 function loadSavedState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY) || '{}'); }
   catch { return {}; }
 }
 
@@ -219,28 +217,42 @@ function prepareQuestions(lesson) {
   });
 }
 
-function createPlayerId() {
-  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, character => {
-    const random = Math.random() * 16 | 0;
-    return (character === 'x' ? random : (random & 0x3 | 0x8)).toString(16);
-  });
-}
-
 const saved = loadSavedState();
+const legacyBossPoints = Array.isArray(saved.attempts)
+  ? saved.attempts.filter(attempt => attempt.boss).reduce((sum, attempt) => sum + (Number(attempt.points) || 0), 0)
+  : 0;
 const state = {
-  xp: Number.isFinite(saved.xp) ? Math.max(0, saved.xp) : 0,
+  xp: Number.isFinite(saved.xp) ? Math.max(0, saved.xp - legacyBossPoints) : 0,
   passed: Array.isArray(saved.passed) ? saved.passed.filter(index => Number.isInteger(index) && index >= 0 && index < lessons.length) : [],
-  identity: typeof saved.identity === 'string' ? saved.identity : '',
-  playerId: typeof saved.playerId === 'string' ? saved.playerId : createPlayerId(),
-  players: saved.players && typeof saved.players === 'object' ? saved.players : {},
-  attempts: Array.isArray(saved.attempts) ? saved.attempts : [],
+  identity: '',
+  displayName: typeof saved.displayName === 'string' ? saved.displayName : '',
+  playerId: '',
+  userId: '',
+  profile: null,
+  leaderboardPlacement: null,
+  cosmeticOptions: null,
+  equippedCosmetics: { nameColor: '#202b3a', font: 'Arial, Helvetica, sans-serif', background: '#ffffff', glow: false },
+  attempts: Array.isArray(saved.attempts) ? saved.attempts.filter(attempt => !attempt.boss) : [],
   sharedEntries: null,
   sharedLoading: false,
   sharedError: '',
   filter: 'all',
-  muted: saved.muted === true
+  settings: {
+    masterVolume: 70,
+    effectsEnabled: saved.muted !== true,
+    musicEnabled: false,
+    darkMode: false
+  }
 };
+let savedSettings = null;
+try {
+  savedSettings = JSON.parse(localStorage.getItem('benchmark-settings-guest') || '{}');
+} catch {
+  toast('Saved settings could not be read. Default settings are active.');
+}
+if (savedSettings && typeof savedSettings === 'object') {
+  state.settings = { ...state.settings, ...savedSettings };
+}
 let activeLessonIndex = null;
 let activeQuestionIndex = 0;
 let activeQuestions = [];
@@ -255,16 +267,31 @@ let celebrationTimer = null;
 let celebrationActive = false;
 let matchingResetTimer = null;
 let proofCode = '';
-let audioContext = null;
-let activeToneNodes = [];
 let activeAttemptWasReplay = false;
 let closeLessonTimer = null;
-let activeBoss = false;
-let bossState = null;
-let bossTimer = null;
+let activeGameMode = 'lesson';
+let trainingMode = false;
+let timedSessionId = null;
+let timedDeadline = null;
+let timedTimer = null;
+let submittedAnswers = [];
+let currentEffect = null;
+let settingsSyncTimer = null;
+let timedAdvanceTimer = null;
 
 function persist() {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ xp: state.xp, passed: state.passed, identity: state.identity, playerId: state.playerId, players: state.players, attempts: state.attempts, muted: state.muted })); }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      xp: state.xp,
+      passed: state.passed,
+      identity: state.identity,
+      displayName: state.displayName,
+      playerId: state.playerId,
+      attempts: state.attempts,
+      settings: state.settings,
+      avatarId: state.profile?.avatar_id || saved.avatarId || 'badge-1'
+    }));
+  }
   catch { toast('Progress could not be saved in this browser.'); }
 }
 
@@ -286,17 +313,11 @@ function renderLessons() {
     .filter(item => state.filter === 'all' || (state.filter === 'completed' ? item.passed : item.unlocked && !item.passed));
   const levelRows = visible.map(({ lesson, index, passed, unlocked: isUnlocked }) => {
     const status = passed ? 'Passed' : isUnlocked ? 'Ready to start' : 'Locked';
-    const action = isUnlocked ? `<button class="row-button" type="button" data-lesson-index="${index}">${passed ? 'Replay' : 'Start'} <span>→</span></button>` : '<span class="lock-mark" aria-label="Locked">&#128274;</span>';
+    const action = isUnlocked ? `<button class="row-button" type="button" data-lesson-index="${index}">${passed ? 'Open' : 'Start'} <span>→</span></button>` : '<span class="lock-mark" aria-label="Locked">&#128274;</span>';
     return `<article class="lesson-row${isUnlocked ? '' : ' locked'}${state.newUnlock === index ? ' just-unlocked' : ''}"><div class="lesson-thumb lesson-symbol lesson-symbol-${index}">${lesson.icon}</div><div><span class="eyebrow">LEVEL ${index + 1} · ${lesson.category}</span><h3>${lesson.title}</h3><p>${lesson.description} &nbsp; 10 questions</p></div><div class="row-action"><div class="row-status ${passed ? 'completed' : ''}">${status}</div>${action}</div></article>`;
   }).join('');
-  const bossUnlocked = state.passed.includes(lessons.length - 1);
-  const showBoss = state.filter === 'all' || (state.filter === 'in-progress' && bossUnlocked);
-  const bossRow = showBoss
-    ? `<article class="lesson-row final-boss-row${bossUnlocked ? '' : ' locked'}"><div class="lesson-thumb final-boss-icon">♛</div><div><span class="eyebrow">FINAL CHALLENGE</span><h3>Final Boss</h3><p>Defeat the boss after completing Level 5. 50 shuffled questions.</p></div><div class="row-action"><div class="row-status">${bossUnlocked ? 'Ready to fight' : 'Locked until Level 5 is passed'}</div>${bossUnlocked ? '<button class="row-button" type="button" data-boss-launch>Choose difficulty <span>→</span></button>' : '<span class="lock-mark" aria-label="Locked">&#128274;</span>'}</div></article>`
-    : '';
-  $('#lesson-list').innerHTML = levelRows + bossRow;
+  $('#lesson-list').innerHTML = levelRows;
   $$('.row-button', $('#lesson-list')).forEach(button => button.addEventListener('click', () => openLesson(Number(button.dataset.lessonIndex))));
-  $('#lesson-list [data-boss-launch]')?.addEventListener('click', openBossDifficulty);
   $('#lesson-count').textContent = lessons.length;
 }
 
@@ -317,24 +338,22 @@ function updateStats() {
 function updateNextLesson() {
   const nextIndex = lessons.findIndex((_, index) => unlocked(index) && !state.passed.includes(index));
   const button = $('#next-level-start');
-  if (nextIndex < 0 && state.passed.includes(lessons.length - 1)) {
-    $('#next-lesson-title').textContent = 'Final Boss';
-    $('#next-lesson-description').textContent = 'All five levels are complete. Choose a difficulty and take on the final challenge.';
-    $('#next-lesson-number').textContent = 'Final challenge · 50 questions';
-    $('#next-level-question-count').textContent = '1,000 HP';
+  if (nextIndex < 0) {
+    $('#next-lesson-title').textContent = 'All levels complete';
+    $('#next-lesson-description').textContent = 'You have passed every level. Replay any level or try a timed challenge.';
+    $('#next-lesson-number').textContent = `${lessons.length} of ${lessons.length} levels passed`;
+    $('#next-level-question-count').textContent = 'Timed challenge available';
     button.removeAttribute('data-start-lesson');
-    button.dataset.bossLaunch = '';
-    button.innerHTML = 'Challenge the Final Boss <span>→</span>';
+    button.innerHTML = 'Replay a level <span>→</span>';
     return;
   }
-  const index = nextIndex < 0 ? 0 : nextIndex;
+  const index = nextIndex;
   const lesson = lessons[index];
   $('#next-lesson-title').textContent = lesson.title;
   $('#next-lesson-description').textContent = lesson.description;
   $('#next-lesson-number').textContent = `Level ${index + 1} of ${lessons.length}`;
   $('#next-level-question-count').textContent = '10 questions';
   button.dataset.startLesson = index;
-  delete button.dataset.bossLaunch;
   button.innerHTML = 'Start level <span>→</span>';
 }
 
@@ -362,23 +381,30 @@ function renderProgress() {
   $('#rank-milestones').innerHTML = RANK_THRESHOLDS.map((item, index) =>
     `<div class="milestone${state.xp >= item.points ? ' done' : ''}${index === nextRankIndex ? ' current' : ''}"><span>✦</span><strong>${item.name}</strong><small>${item.points.toLocaleString()} points</small></div>`
   ).join('');
+  renderPlayerProfile();
 }
 
-function syncPlayerScore() {
-  if (!state.identity) return;
-  state.players[state.playerId] = { player_id: state.playerId, name: state.identity, points: state.xp };
+function renderAvatar(element, avatarId) {
+  if (!element) return;
+  const validAvatar = /^badge-[1-6]$|^flat-[1-6]$/.test(avatarId || '') ? avatarId : 'badge-1';
+  element.dataset.avatar = validAvatar;
+  element.setAttribute('aria-label', `${validAvatar.replace('-', ' ')} avatar`);
 }
 
-async function publishPlayerScore() {
-  if (!supabaseClient || !state.identity) return false;
-  const { error } = await supabaseClient.from('leaderboard_entries').upsert({
-    player_id: state.playerId,
-    last_name: state.identity,
-    points: state.xp,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'player_id' });
-  if (error) throw error;
-  return true;
+function renderPlayerProfile() {
+  const profile = state.profile;
+  const rank = rankForPoints(state.xp);
+  const displayName = profile?.display_name || state.identity || state.displayName || 'Guest';
+  const equipped = profile?.equipped_cosmetics || state.equippedCosmetics;
+  renderAvatar($('#header-avatar'), profile?.avatar_id || saved.avatarId || 'badge-1');
+  renderAvatar($('#progress-avatar'), profile?.avatar_id || saved.avatarId || 'badge-1');
+  $('#profile-heading').textContent = displayName;
+  $('#profile-rank').textContent = `${rank.name} · ${state.xp.toLocaleString()} points`;
+  $('#profile-placement').textContent = state.leaderboardPlacement
+    ? `Leaderboard placement: #${state.leaderboardPlacement}`
+    : 'Leaderboard placement: not ranked';
+  $('#profile-cosmetic-summary').textContent = `Leaderboard color: ${equipped.nameColor || '#202b3a'}`;
+  state.equippedCosmetics = equipped;
 }
 
 async function loadSharedLeaderboard() {
@@ -391,73 +417,61 @@ async function loadSharedLeaderboard() {
     renderLeaderboard();
     return;
   }
-  let scoreSyncFailed = false;
-  if (state.identity) {
-    try { await publishPlayerScore(); }
-    catch { scoreSyncFailed = true; }
-  }
   try {
     const { data, error } = await supabaseClient
-      .from('leaderboard_entries')
-      .select('player_id, last_name, points, updated_at')
-      .order('points', { ascending: false })
-      .order('updated_at', { ascending: true })
+      .from('benchmark_leaderboard')
+      .select('user_id, display_name, username, avatar_id, equipped_cosmetics, points, placement')
+      .order('placement', { ascending: true })
       .limit(100);
     if (error) throw error;
-    state.sharedEntries = data.map(entry => ({ player_id: entry.player_id, name: entry.last_name, points: Number(entry.points) }));
-    if (scoreSyncFailed) state.sharedError = 'Your score could not be updated.';
-  } catch {
+    state.sharedEntries = data.map(entry => ({
+      player_id: entry.user_id,
+      name: entry.display_name || entry.username,
+      points: Number(entry.points),
+      avatar_id: entry.avatar_id,
+      equipped_cosmetics: entry.equipped_cosmetics || {}
+    }));
+    const ownEntry = data.find(entry => entry.user_id === state.userId);
+    if (ownEntry) state.leaderboardPlacement = Number(ownEntry.placement);
+    else if (state.userId) {
+      const { data: ownPlacement, error: placementError } = await supabaseClient
+        .from('benchmark_leaderboard')
+        .select('placement')
+        .eq('user_id', state.userId)
+        .maybeSingle();
+      if (placementError) throw placementError;
+      state.leaderboardPlacement = ownPlacement ? Number(ownPlacement.placement) : null;
+    } else state.leaderboardPlacement = null;
+  } catch (error) {
     state.sharedEntries = null;
-    state.sharedError = 'Could not sync the shared leaderboard. Check the Supabase SQL setup and connection.';
+    state.leaderboardPlacement = null;
+    state.sharedError = `Could not load the shared leaderboard: ${error.message}`;
   }
   state.sharedLoading = false;
   renderLeaderboard();
+  renderPlayerProfile();
 }
 
 function playSound(kind) {
-  if (state.muted) return;
-  try {
-    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
-    const now = audioContext.currentTime;
-    activeToneNodes.forEach(oscillator => {
-      try { oscillator.stop(now); } catch { /* The tone may have ended already. */ }
-      oscillator.disconnect();
-    });
-    activeToneNodes = [];
-    const patterns = { correct: [660, 880], wrong: [260, 190], pass: [523, 659, 784], points: [740, 988], neutral: [440], tick: [880] };
-    (patterns[kind] || [440]).forEach((frequency, index) => {
-      const oscillator = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      const start = now + index * 0.11;
-      oscillator.type = 'sine';
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.09, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.17);
-      oscillator.connect(gain).connect(audioContext.destination);
-      oscillator.start(start);
-      oscillator.stop(start + 0.18);
-      activeToneNodes.push(oscillator);
-    });
-  } catch { /* Audio is optional when browser playback is unavailable. */ }
-}
-
-function playResultSound(didPass) {
-  if (state.muted) return;
-  const audio = $(didPass ? '#lesson-pass-sound' : '#lesson-fail-sound');
+  if (!state.settings.effectsEnabled || state.settings.masterVolume <= 0) return;
+  const soundIds = { correct: 'sound-correct', wrong: 'sound-incorrect', applaud: 'sound-applaud', aww: 'sound-aww' };
+  const audio = document.getElementById(soundIds[kind]);
   if (!audio) return;
+  if (currentEffect && currentEffect !== audio) currentEffect.pause();
   audio.pause();
   audio.currentTime = 0;
-  audio.loop = false;
-  audio.volume = didPass ? 0.72 : 0.48;
-  audio.play().catch(() => {});
+  audio.volume = state.settings.masterVolume / 100;
+  currentEffect = audio;
+  audio.play().catch(() => toast('This browser blocked audio playback. Check the browser sound settings.'));
+}
+
+function playResultSound(didWin) {
+  playSound(didWin ? 'applaud' : 'aww');
 }
 
 function openLesson(index) {
   if (!unlocked(index)) return;
-  stopBossTimer();
-  activeBoss = false;
-  bossState = null;
+  stopTimedTimer();
   clearTimeout(closeLessonTimer);
   clearTimeout(celebrationTimer);
   clearTimeout(matchingResetTimer);
@@ -466,6 +480,8 @@ function openLesson(index) {
   $('#lesson-flow').classList.remove('is-closing');
   activeLessonIndex = index;
   activeAttemptWasReplay = state.passed.includes(index);
+  activeGameMode = 'lesson';
+  trainingMode = false;
   activeQuestionIndex = 0;
   activeQuestions = [];
   selectedAnswer = null;
@@ -475,20 +491,19 @@ function openLesson(index) {
   questionResults = [];
   correctStreak = 0;
   answerScore = 0;
+  submittedAnswers = [];
   $('#lesson-flow').hidden = false;
-  renderSummary();
+  renderModePicker();
   $('#flow-close').focus();
 }
 
 function closeLesson() {
   const dialog = $('#lesson-flow');
-  if ((celebrationActive && !activeBoss) || dialog.hidden || dialog.classList.contains('is-closing')) return;
-  stopBossTimer();
+  if ((celebrationActive && activeGameMode === 'lesson') || dialog.hidden || dialog.classList.contains('is-closing')) return;
+  stopTimedTimer();
   clearTimeout(celebrationTimer);
   celebrationActive = false;
   $('#celebration-overlay').hidden = true;
-  activeBoss = false;
-  bossState = null;
   clearTimeout(matchingResetTimer);
   dialog.classList.add('is-closing');
   closeLessonTimer = setTimeout(() => {
@@ -498,179 +513,152 @@ function closeLesson() {
   }, 190);
 }
 
-function openBossDifficulty() {
-  if (!state.passed.includes(lessons.length - 1)) return;
-  stopBossTimer();
-  clearTimeout(closeLessonTimer);
-  clearTimeout(celebrationTimer);
-  clearTimeout(matchingResetTimer);
-  celebrationActive = false;
-  $('#celebration-overlay').hidden = true;
-  $('#lesson-flow').classList.remove('is-closing');
-  $('#lesson-flow').hidden = false;
-  activeBoss = true;
-  activeLessonIndex = null;
-  activeQuestions = [];
-  activeQuestionIndex = 0;
-  selectedAnswer = null;
-  selectedFillWord = null;
-  matchingState = null;
-  answerLocked = false;
-  questionResults = [];
-  correctStreak = 0;
-  answerScore = 0;
-  bossState = null;
-  const options = Object.entries(FINAL_BOSS_CONFIG.difficulties).map(([key, difficulty]) =>
-    `<button class="boss-difficulty-card" type="button" data-boss-difficulty="${key}"><strong>${difficulty.label}</strong><span>${Math.floor(difficulty.durationSeconds / 60)}:${String(difficulty.durationSeconds % 60).padStart(2, '0')} timer</span><small>+${difficulty.bonusPoints} bonus points on victory</small></button>`
-  ).join('');
-  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">FINAL CHALLENGE</p><div class="flow-lesson-icon final-boss-icon">♛</div><h1 id="flow-title">Final Boss</h1><p class="flow-lead">Choose your difficulty. Each correct answer deals ${FINAL_BOSS_CONFIG.damagePerCorrect} damage; defeat the boss before time runs out.</p><div class="boss-difficulty-grid">${options}</div><div class="flow-footer"><span>Boss health: ${FINAL_BOSS_CONFIG.maxHealth} HP</span><button class="text-button" type="button" data-back-lessons>Back to levels</button></div>`;
-  $$('[data-boss-difficulty]').forEach(button => button.addEventListener('click', () => startBossFight(button.dataset.bossDifficulty)));
+function renderModePicker() {
+  const lesson = lessons[activeLessonIndex];
+  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="flow-lesson-icon">${lesson.icon}</div><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description}</p><div class="mode-picker"><button class="mode-card" type="button" data-training-mode><strong>Train</strong><span>Review every question with the answers and explanations from this lesson.</span><small>No points are awarded.</small></button><button class="mode-card" type="button" data-play-mode><strong>Play</strong><span>Take the level quiz and earn points for correct answers.</span><small>Pass with 7 out of 10 correct.</small></button></div><div class="flow-footer"><span>Choose how you want to learn.</span><button class="text-button" type="button" data-back-lessons>Back to levels</button></div>`;
+  $('[data-training-mode]').addEventListener('click', () => {
+    trainingMode = true;
+    renderTraining();
+  });
+  $('[data-play-mode]').addEventListener('click', () => {
+    trainingMode = false;
+    renderSummary();
+  });
   $('[data-back-lessons]').addEventListener('click', () => { closeLesson(); setView('lessons'); });
-  $('#flow-close').focus();
 }
 
-function startBossFight(difficultyKey) {
-  const difficulty = FINAL_BOSS_CONFIG.difficulties[difficultyKey];
-  if (!difficulty) return;
-  stopBossTimer();
-  answerScore = 0;
-  questionResults = [];
-  correctStreak = 0;
-  activeQuestionIndex = 0;
-  selectedAnswer = null;
-  selectedFillWord = null;
-  matchingState = null;
-  answerLocked = false;
-  activeBoss = true;
-  bossState = {
-    difficultyKey,
-    health: FINAL_BOSS_CONFIG.maxHealth,
-    deadline: Date.now() + difficulty.durationSeconds * 1000,
-    remainingWhenPaused: null,
-    answered: 0,
-    finished: false
-  };
-  activeQuestions = shuffleItems(prepareQuestions({ questions: FINAL_BOSS_QUESTION_POOL }));
-  renderQuestion();
-  startBossTimer();
+function renderTraining() {
+  const lesson = lessons[activeLessonIndex];
+  const cards = lesson.questions.map((question, index) => {
+    const answer = question.type === 'matching'
+      ? `<ul class="training-matches">${question.pairs.map(pair => `<li><strong>${pair.left}</strong><span>${pair.right}</span></li>`).join('')}</ul>`
+      : `<p class="training-answer"><strong>Answer:</strong> ${question.answer}</p>`;
+    const explanation = question.explanation || (question.type === 'matching'
+      ? 'The matching pairs above are the lesson information provided for this question.'
+      : '');
+    return `<article class="training-question"><p class="eyebrow">QUESTION ${index + 1}</p><h2>${question.prompt.replace(/\*__\*/g, '_____')}</h2>${answer}${explanation ? `<p class="training-explanation"><strong>Explanation:</strong> ${explanation}</p>` : '<p class="training-missing">No explanation is provided for this question yet.</p>'}</article>`;
+  }).join('');
+  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">TRAINING · LEVEL ${activeLessonIndex + 1}</p><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description} Review the existing question answers and lesson information below. Training does not award points.</p><div class="training-list">${cards}</div><div class="flow-footer"><button class="text-button" type="button" data-back-mode>Back</button><button class="primary-button" type="button" data-start-play>Start Play <span>→</span></button></div>`;
+  $('[data-back-mode]').addEventListener('click', renderModePicker);
+  $('[data-start-play]').addEventListener('click', () => {
+    trainingMode = false;
+    renderSummary();
+  });
 }
 
-function startBossTimer() {
-  stopBossTimer();
-  let previousSeconds = null;
-  const updateTimer = () => {
-    if (!bossState || bossState.finished || bossState.health === 0) return;
-    const remaining = Math.max(0, Math.ceil((bossState.deadline - Date.now()) / 1000));
-    const timer = $('.boss-timer');
+async function startTimedChallenge() {
+  if (!state.userId || !supabaseClient) {
+    toast('Sign in before starting a timed challenge so verified points can be saved.');
+    setView('settings');
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
+      body: { action: 'start_timed' }
+    });
+    if (error) throw error;
+    timedSessionId = data.session_id;
+    timedDeadline = new Date(data.started_at).getTime() + TIMED_CHALLENGE_SECONDS * 1000;
+    activeGameMode = 'timed';
+    activeLessonIndex = null;
+    activeQuestions = shuffleItems(prepareQuestions({ questions: QUESTION_POOL }));
+    activeQuestionIndex = 0;
+    selectedAnswer = null;
+    selectedFillWord = null;
+    matchingState = null;
+    answerLocked = false;
+    answerScore = 0;
+    submittedAnswers = [];
+    questionResults = [];
+    correctStreak = 0;
+    $('#lesson-flow').classList.remove('is-closing');
+    $('#lesson-flow').hidden = false;
+    renderQuestion();
+    startTimedTimer();
+  } catch (error) {
+    toast(`Timed Challenge could not start: ${error.message}`);
+  }
+}
+
+function startTimedTimer() {
+  stopTimedTimer();
+  const update = () => {
+    if (timedDeadline === null) return;
+    const remaining = Math.max(0, Math.ceil((timedDeadline - Date.now()) / 1000));
+    const timer = $('#timed-countdown');
     if (timer) {
       timer.textContent = `${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
       timer.classList.toggle('is-urgent', remaining <= 10);
     }
-    if (remaining > 0 && remaining <= 10 && remaining !== previousSeconds) playSound('tick');
-    previousSeconds = remaining;
-    if (remaining === 0) finishBossAttempt(false);
+    if (remaining === 0) void finishTimedChallenge();
   };
-  updateTimer();
-  bossTimer = setInterval(updateTimer, 200);
+  update();
+  timedTimer = setInterval(update, 100);
 }
 
-function stopBossTimer() {
-  if (bossTimer !== null) clearInterval(bossTimer);
-  bossTimer = null;
+function stopTimedTimer() {
+  if (timedTimer !== null) clearInterval(timedTimer);
+  timedTimer = null;
 }
 
-function bossTimeExpired() {
-  if (!activeBoss || !bossState || bossState.health === 0 || Date.now() < bossState.deadline) return false;
-  finishBossAttempt(false);
-  return true;
-}
-
-document.addEventListener('visibilitychange', () => {
-  if (!activeBoss || !bossState || bossState.finished) return;
-  if (document.hidden) {
-    bossState.remainingWhenPaused = Math.max(0, bossState.deadline - Date.now());
-    stopBossTimer();
-  } else if (bossState.remainingWhenPaused !== null) {
-    bossState.deadline = Date.now() + bossState.remainingWhenPaused;
-    bossState.remainingWhenPaused = null;
-    startBossTimer();
-  }
-});
-
-function updateBossHealth() {
-  const bar = $('.boss-health-fill');
-  const label = $('.boss-health-value');
-  if (!bossState || !bar || !label) return;
-  $('.boss-health-track').setAttribute('aria-valuenow', String(bossState.health));
-  bar.style.width = `${(bossState.health / FINAL_BOSS_CONFIG.maxHealth) * 100}%`;
-  label.textContent = `${bossState.health.toLocaleString()} HP`;
-  if (bossState.health < FINAL_BOSS_CONFIG.maxHealth) {
-    bar.classList.remove('boss-hit');
-    void bar.offsetWidth;
-    bar.classList.add('boss-hit');
-    $('.boss-health')?.classList.add('boss-shake');
-    setTimeout(() => $('.boss-health')?.classList.remove('boss-shake'), 420);
-  }
-}
-
-function finishBossAttempt(won) {
-  if (!bossState || bossState.finished) return;
-  bossState.finished = true;
-  stopBossTimer();
-  clearTimeout(matchingResetTimer);
-  clearTimeout(celebrationTimer);
-  celebrationActive = false;
-  $('#celebration-overlay').hidden = true;
+async function finishTimedChallenge() {
+  if (activeGameMode !== 'timed' || !timedSessionId || answerLocked) return;
   answerLocked = true;
-  const difficulty = FINAL_BOSS_CONFIG.difficulties[bossState.difficultyKey];
-  const bonus = won ? difficulty.bonusPoints : 0;
-  state.xp += answerScore + bonus;
-  state.attempts.push({ at: Date.now(), points: answerScore + bonus, boss: true });
-  syncPlayerScore();
-  persist();
-  if (state.identity) publishPlayerScore().catch(() => { state.sharedError = 'Your latest score could not be synced.'; });
-  updateStats();
-  if (answerScore > 0) playSound('points');
-  renderBossResult(won, bonus);
-  playResultSound(won);
-}
-
-function renderBossResult(won, bonus) {
-  const title = won ? 'Boss Defeated!' : "Time's up!";
-  const message = won
-    ? `You defeated the Final Boss on ${FINAL_BOSS_CONFIG.difficulties[bossState.difficultyKey].label} difficulty!`
-    : 'The boss is still standing. Try again with a new attempt and a fresh timer.';
-  const confetti = won
-    ? `<div class="boss-confetti" aria-hidden="true">${Array.from({ length: 36 }, (_, index) => `<i style="--confetti-index:${index};--confetti-left:${(index * 37 + 9) % 100}%;--confetti-color:${['#f2b632', '#2459a6', '#23834b', '#c94343'][index % 4]}"></i>`).join('')}</div>`
-    : '';
-  $('#lesson-flow-content').innerHTML = `${confetti}<div class="result-burst ${won ? 'pass-burst' : 'retry-burst'}">${won ? '✦' : '↻'}</div><p class="eyebrow">FINAL BOSS RESULT</p><h1 id="flow-title">${title}</h1><p class="flow-lead">${message}</p><div class="score-summary"><div><strong>${answerScore}</strong><small>question points earned</small></div><div><strong>${bonus ? `+${bonus}` : '0'}</strong><small>victory bonus</small></div><div><strong>${state.xp.toLocaleString()}</strong><small>total points</small></div></div><div class="flow-footer"><button class="text-button" type="button" data-back-lessons>Back to levels</button><button class="primary-button" type="button" data-retry-boss>Retry Final Boss <span>↻</span></button></div>`;
-  $('[data-retry-boss]').addEventListener('click', openBossDifficulty);
+  stopTimedTimer();
+  let result = null;
+  let submissionError = '';
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
+      body: { action: 'submit_timed', session_id: timedSessionId, answers: submittedAnswers }
+    });
+    if (error) throw error;
+    result = data;
+    state.xp = Number(data.total_points);
+    state.attempts.push({ at: Date.now(), points: Number(data.points_awarded), timed: true });
+    state.leaderboardPlacement = null;
+    persist();
+    updateStats();
+    await loadSharedLeaderboard();
+  } catch (error) {
+    submissionError = error.message;
+  }
+  const answered = Number(result?.answered_questions ?? submittedAnswers.length);
+  const correct = Number(result?.correct_answers ?? 0);
+  const bonus = Number(result?.bonus_points ?? 0);
+  const pointsEarned = Number(result?.points_awarded ?? 0);
+  $('#lesson-flow-content').innerHTML = `<div class="result-burst ${result ? 'pass-burst' : 'retry-burst'}">${result ? '✦' : '!'}</div><p class="eyebrow">TIMED CHALLENGE RESULTS</p><h1 id="flow-title">${result ? 'Time’s up!' : 'Score not verified'}</h1><p class="flow-lead">${result ? 'Your answer list was checked on the server.' : `Your score was not saved: ${submissionError}`}</p><div class="score-summary"><div><strong>${answered}</strong><small>questions answered</small></div><div><strong>${correct}</strong><small>correct answers</small></div><div><strong>+${bonus}</strong><small>bonus points earned</small></div><div><strong>${pointsEarned}</strong><small>points awarded</small></div></div><div class="flow-footer"><button class="text-button" type="button" data-back-lessons>Back to Play</button><button class="primary-button" type="button" data-close-results>Done <span>→</span></button></div>`;
   $('[data-back-lessons]').addEventListener('click', () => { closeLesson(); setView('lessons'); });
+  $('[data-close-results]').addEventListener('click', closeLesson);
+  if (result) playResultSound(correct > 0);
 }
 
 function renderSummary() {
   const lesson = lessons[activeLessonIndex];
-  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="flow-lesson-icon">${lesson.icon}</div><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description}</p><ul class="summary-points">${lesson.summary.map(point => `<li>${point}</li>`).join('')}</ul><div class="flow-footer"><span>10 questions · Pass with 7 correct</span><button class="primary-button" type="button" data-begin-quiz>Begin Level <span>→</span></button></div>`;
+  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">PLAY · LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="flow-lesson-icon">${lesson.icon}</div><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description}</p><ul class="summary-points">${lesson.summary.map(point => `<li>${point}</li>`).join('')}</ul><div class="flow-footer"><span>10 questions · Pass with 7 correct</span><button class="primary-button" type="button" data-begin-quiz>Begin Level <span>→</span></button></div>`;
   $('[data-begin-quiz]').addEventListener('click', () => {
     activeQuestions = prepareQuestions(lesson);
+    activeGameMode = 'lesson';
     questionResults = [];
     correctStreak = 0;
     answerScore = 0;
     activeQuestionIndex = 0;
+    submittedAnswers = [];
     renderQuestion();
   });
 }
 
 function renderQuestion() {
+  clearTimeout(timedAdvanceTimer);
   selectedAnswer = null;
   selectedFillWord = null;
   matchingState = null;
   answerLocked = false;
   const question = activeQuestions[activeQuestionIndex];
   const progress = ((activeQuestionIndex + 1) / activeQuestions.length) * 100;
-  const lesson = activeBoss ? null : lessons[activeLessonIndex];
-  const header = activeBoss
-    ? `<div class="boss-status"><div class="boss-health"><div class="boss-health-label"><span>FINAL BOSS HEALTH</span><strong class="boss-health-value">${bossState.health.toLocaleString()} HP</strong></div><div class="boss-health-track" role="progressbar" aria-label="Boss health" aria-valuemin="0" aria-valuemax="${FINAL_BOSS_CONFIG.maxHealth}" aria-valuenow="${bossState.health}"><span class="boss-health-fill" style="width:100%"></span></div></div><div class="boss-timer-wrap"><span>TIME</span><strong class="boss-timer" role="timer" aria-label="Time remaining">--:--</strong></div></div><p class="eyebrow">FINAL BOSS · ${FINAL_BOSS_CONFIG.difficulties[bossState.difficultyKey].label.toUpperCase()} MODE</p><div class="quiz-heading"><h1 id="flow-title">Final Boss</h1><span>Question ${bossState.answered + 1}</span></div>`
+  const timed = activeGameMode === 'timed';
+  const lesson = timed ? null : lessons[activeLessonIndex];
+  const header = timed
+    ? `<p class="eyebrow">TIMED CHALLENGE</p><div class="quiz-heading"><h1 id="flow-title">Answer as many as you can</h1><strong class="timed-countdown" id="timed-countdown" role="timer" aria-label="Time remaining">1:00</strong></div><p class="timed-progress">${submittedAnswers.length} answered · ${answerScore} correct</p>`
     : `<p class="eyebrow">LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="quiz-heading"><h1 id="flow-title">${lesson.title}</h1><span>Question ${activeQuestionIndex + 1} / ${activeQuestions.length}</span></div><div class="quiz-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="${activeQuestions.length}" aria-valuenow="${activeQuestionIndex + 1}"><span style="width:${progress}%"></span></div>`;
   const questionType = question.type || 'multiple-choice';
   const renderers = {
@@ -686,7 +674,7 @@ function renderQuestion() {
 }
 
 function renderMultipleChoiceQuestion(question) {
-  const nextLabel = activeBoss ? 'Continue' : activeQuestionIndex === activeQuestions.length - 1 ? 'See results' : 'Next question';
+  const nextLabel = activeQuestionIndex === activeQuestions.length - 1 && activeGameMode === 'lesson' ? 'See results' : 'Next question';
   return `<h2 class="question-prompt">${question.prompt}</h2><div class="answer-list" role="group" aria-label="Answer choices">${question.options.map((option, index) => `<button class="answer-choice" type="button" data-answer-index="${index}"><span class="choice-letter">${String.fromCharCode(65 + index)}</span><span>${option}</span></button>`).join('')}</div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span>${answerScore} correct so far</span><button class="primary-button" type="button" data-next-question disabled>${nextLabel} <span>→</span></button></div>`;
 }
 
@@ -698,7 +686,7 @@ function renderFillBlankQuestion(question) {
 function renderMatchingQuestion(question) {
   const leftItems = shuffleItems(question.pairs.map((pair, index) => ({ value: pair.left, index })));
   const rightItems = shuffleItems(question.pairs.map((pair, index) => ({ value: pair.right, index })));
-  matchingState = { selectedLeft: null, matched: new Set(), mistakes: 0, resolving: false, completed: false };
+  matchingState = { selectedLeft: null, matched: new Set(), mistakes: 0, resolving: false, completed: false, history: [] };
   return `<h2 class="question-prompt">${question.prompt}</h2><div class="matching-columns"><div class="matching-column" role="group" aria-label="Terms">${leftItems.map(item => `<button class="matching-choice" type="button" data-match-side="left" data-pair-index="${item.index}">${item.value}</button>`).join('')}</div><div class="matching-column" role="group" aria-label="Definitions">${rightItems.map(item => `<button class="matching-choice" type="button" data-match-side="right" data-pair-index="${item.index}">${item.value}</button>`).join('')}</div></div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span data-match-status>0 of ${question.pairs.length} matched · 0 mistakes</span><button class="primary-button" type="button" data-match-continue disabled>Match all pairs</button></div>`;
 }
 
@@ -736,28 +724,28 @@ function bindMatchingQuestion(question) {
   $('[data-match-continue]').addEventListener('click', advanceAfterAnswer);
 }
 
-function recordQuestionResult(isCorrect) {
+function recordQuestionResult(isCorrect, answer) {
   questionResults.push(isCorrect);
+  if (!trainingMode) {
+    submittedAnswers.push({ question_id: activeQuestions[activeQuestionIndex].id, answer });
+  }
   if (isCorrect) {
     answerScore += 1;
     correctStreak += 1;
   } else correctStreak = 0;
-  if (activeBoss) {
-    bossState.answered += 1;
-    if (isCorrect) bossState.health = Math.max(0, bossState.health - FINAL_BOSS_CONFIG.damagePerCorrect);
-    updateBossHealth();
-    if (bossState.health === 0) stopBossTimer();
-  }
 }
 
 function chooseAnswer(optionIndex) {
   if (selectedAnswer !== null || answerLocked) return;
-  if (bossTimeExpired()) return;
+  if (activeGameMode === 'timed' && Date.now() >= timedDeadline) {
+    void finishTimedChallenge();
+    return;
+  }
   const question = activeQuestions[activeQuestionIndex];
   selectedAnswer = question.options[optionIndex];
   const isCorrect = selectedAnswer.toLocaleLowerCase() === question.answer.toLocaleLowerCase();
   answerLocked = true;
-  recordQuestionResult(isCorrect);
+  recordQuestionResult(isCorrect, selectedAnswer);
   $$('.answer-choice').forEach((button, index) => {
     const option = question.options[index];
     button.disabled = true;
@@ -773,11 +761,14 @@ function chooseAnswer(optionIndex) {
 
 function submitFillAnswer(question) {
   if (selectedFillWord === null || answerLocked) return;
-  if (bossTimeExpired()) return;
+  if (activeGameMode === 'timed' && Date.now() >= timedDeadline) {
+    void finishTimedChallenge();
+    return;
+  }
   answerLocked = true;
   const selectedWord = question.choices[selectedFillWord];
   const isCorrect = selectedWord.toLocaleLowerCase() === question.answer.toLocaleLowerCase();
-  recordQuestionResult(isCorrect);
+  recordQuestionResult(isCorrect, selectedWord);
   const blank = $('[data-blank-slot]');
   blank.disabled = true;
   blank.classList.add(isCorrect ? 'is-correct' : 'is-wrong');
@@ -791,7 +782,10 @@ function submitFillAnswer(question) {
 }
 
 function chooseMatch(button, question) {
-  if (bossTimeExpired()) return;
+  if (activeGameMode === 'timed' && Date.now() >= timedDeadline) {
+    void finishTimedChallenge();
+    return;
+  }
   const side = button.dataset.matchSide;
   const pairIndex = Number(button.dataset.pairIndex);
   if (answerLocked || matchingState.resolving || matchingState.completed || matchingState.matched.has(pairIndex)) return;
@@ -802,6 +796,7 @@ function chooseMatch(button, question) {
   }
   if (matchingState.selectedLeft === null) return;
   const leftIndex = matchingState.selectedLeft;
+  matchingState.history.push([leftIndex, pairIndex]);
   const leftButton = $(`[data-match-side="left"][data-pair-index="${leftIndex}"]`);
   if (leftIndex === pairIndex) {
     matchingState.matched.add(pairIndex);
@@ -835,7 +830,7 @@ function updateMatchingProgress(question) {
   matchingState.completed = true;
   answerLocked = true;
   const isCorrect = matchingState.mistakes <= CELEBRATION_CONFIG.matchingMistakeLimit;
-  recordQuestionResult(isCorrect);
+  recordQuestionResult(isCorrect, { matches: matchingState.history });
   $$('.matching-choice').forEach(item => { item.disabled = true; });
   showAnswerFeedback(isCorrect,
     isCorrect
@@ -849,18 +844,25 @@ function showAnswerFeedback(isCorrect, message) {
   feedback.textContent = message;
   const footer = $('.quiz-footer');
   footer.innerHTML = `<span>${answerScore} correct so far</span><button class="primary-button" type="button" data-new-continue>Continue <span>→</span></button>`;
-  $('[data-new-continue]').addEventListener('click', advanceAfterAnswer);
+  $('[data-new-continue]').addEventListener('click', () => {
+    clearTimeout(timedAdvanceTimer);
+    advanceAfterAnswer();
+  });
+  if (activeGameMode === 'timed') {
+    $('[data-new-continue]').textContent = 'Next question →';
+    timedAdvanceTimer = setTimeout(advanceAfterAnswer, 180);
+  }
 }
 
 function advanceAfterAnswer() {
-  if (bossTimeExpired()) return;
   if (!answerLocked || celebrationActive) return;
-  if (activeBoss) {
-    if (bossState.answered % 2 === 0) {
-      showCelebration();
+  if (activeGameMode === 'timed') {
+    if (Date.now() >= timedDeadline || activeQuestionIndex >= activeQuestions.length - 1) {
+      void finishTimedChallenge();
       return;
     }
-    continueBossFight();
+    activeQuestionIndex += 1;
+    renderQuestion();
     return;
   }
   if (activeQuestionIndex === activeQuestions.length - 1) {
@@ -872,19 +874,6 @@ function advanceAfterAnswer() {
     return;
   }
   activeQuestionIndex += 1;
-  renderQuestion();
-}
-
-function continueBossFight() {
-  if (bossState.health === 0) {
-    finishBossAttempt(true);
-    return;
-  }
-  activeQuestionIndex += 1;
-  if (activeQuestionIndex >= activeQuestions.length) {
-    activeQuestions = shuffleItems(prepareQuestions({ questions: FINAL_BOSS_QUESTION_POOL }));
-    activeQuestionIndex = 0;
-  }
   renderQuestion();
 }
 
@@ -904,62 +893,80 @@ function showCelebration() {
     : randomChoice(tier.messages);
   const overlay = $('#celebration-overlay');
   overlay.className = `celebration-overlay celebration-${tier.tier}`;
-  overlay.innerHTML = `<span class="celebration-sparkles" aria-hidden="true">✦　✧　✦</span><span class="celebration-icon" aria-hidden="true">${tier.icon}</span><strong>${message}</strong><span class="celebration-subtitle">${activeBoss ? bossState.answered : activeQuestionIndex + 1} questions complete</span>`;
+  overlay.innerHTML = `<span class="celebration-sparkles" aria-hidden="true">✦　✧　✦</span><span class="celebration-icon" aria-hidden="true">${tier.icon}</span><strong>${message}</strong><span class="celebration-subtitle">${activeQuestionIndex + 1} questions complete</span>`;
   overlay.hidden = false;
-  playSound(tier.tier === 'perfect' ? 'pass' : 'neutral');
   celebrationTimer = setTimeout(continueAfterCelebration, CELEBRATION_CONFIG.durationMs);
 }
 
 function continueAfterCelebration() {
   if (!celebrationActive) return;
-  if (bossTimeExpired()) return;
   clearTimeout(celebrationTimer);
   celebrationActive = false;
   $('#celebration-overlay').hidden = true;
-  if (activeBoss) {
-    continueBossFight();
-    return;
-  }
   activeQuestionIndex += 1;
   renderQuestion();
 }
 
-function finishAttempt() {
+async function finishAttempt() {
   const lesson = lessons[activeLessonIndex];
   const passedBefore = state.passed.includes(activeLessonIndex);
-  const didPass = answerScore >= 7;
   const previousUnlocked = lessons.map((_, index) => unlocked(index));
-  state.xp += answerScore;
-  state.attempts.push({ at: Date.now(), points: answerScore, lesson: activeLessonIndex + 1 });
-  if (didPass && !passedBefore) state.passed.push(activeLessonIndex);
-  syncPlayerScore();
-  persist();
-  if (state.identity) publishPlayerScore().catch(() => { state.sharedError = 'Your latest score could not be synced.'; });
+  let submissionError = '';
+  if (state.userId) {
+    try {
+      const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
+        body: { action: 'submit_lesson', lesson_index: activeLessonIndex + 1, answers: submittedAnswers }
+      });
+      if (error) throw error;
+      answerScore = Number(data.correct_answers);
+      state.xp = Number(data.total_points);
+      state.passed = (data.completed_levels || []).map(level => Number(level) - 1);
+      state.attempts.push({ at: Date.now(), points: Number(data.points_awarded), lesson: activeLessonIndex + 1 });
+      if (state.profile && data.unlocked_cosmetics) state.profile.unlocked_cosmetics = data.unlocked_cosmetics;
+    } catch (error) {
+      submissionError = error.message;
+    }
+  } else {
+    state.xp += answerScore;
+    if (answerScore >= 7 && !passedBefore) state.passed.push(activeLessonIndex);
+    state.attempts.push({ at: Date.now(), points: answerScore, lesson: activeLessonIndex + 1 });
+  }
+  const didPass = !submissionError && answerScore >= 7;
+  if (!submissionError) persist();
   updateStats();
   renderLessons();
-  const unlockedIndex = lessons.findIndex((_, index) => !previousUnlocked[index] && unlocked(index));
+  if (!submissionError && state.userId) await loadSharedLeaderboard();
+  const unlockedIndex = didPass ? lessons.findIndex((_, index) => !previousUnlocked[index] && unlocked(index)) : -1;
   if (unlockedIndex >= 0) {
     state.newUnlock = unlockedIndex;
     renderLessons();
     setTimeout(() => { state.newUnlock = null; }, 1200);
   }
-  if (answerScore > 0) playSound('points');
-  if (unlockedIndex >= 0) toast(`Level ${activeLessonIndex + 1} passed! Level ${unlockedIndex + 1} unlocked.`);
+  if (submissionError) toast(`Your score could not be verified: ${submissionError}`);
+  else if (unlockedIndex >= 0) toast(`Level ${activeLessonIndex + 1} passed! Level ${unlockedIndex + 1} unlocked.`);
   else if (didPass && !passedBefore) toast(`Level ${activeLessonIndex + 1} passed! +${answerScore} points earned.`);
   else toast(`+${answerScore} point${answerScore === 1 ? '' : 's'} added to your total.`);
-  renderResult(didPass, passedBefore);
+  renderResult(didPass, passedBefore, submissionError);
 }
 
-function renderResult(didPass, passedBefore) {
+function renderResult(didPass, passedBefore, submissionError = '') {
   const lesson = lessons[activeLessonIndex];
-  const title = didPass ? 'Congratulations, you passed!' : 'Good try!';
-  const message = didPass ? `You passed ${lesson.title} with ${answerScore} out of 10.` : `You earned ${answerScore} out of 10. You need 7 to pass. Your next try can be stronger.`;
-  const action = didPass ? '<button class="primary-button" type="button" data-show-proof>View completion proof <span>→</span></button>' : '<button class="primary-button" type="button" data-retry-lesson>Retry level <span>↻</span></button>';
-  $('#lesson-flow-content').innerHTML = `<div class="result-burst ${didPass ? 'pass-burst' : 'retry-burst'}">${didPass ? '✦' : '↻'}</div><p class="eyebrow">LEVEL ${activeLessonIndex + 1} ${passedBefore ? 'REPLAY' : 'RESULT'}</p><h1 id="flow-title">${title}</h1><p class="flow-lead">${message}</p><div class="score-summary"><div><strong>${answerScore}<span>/10</span></strong><small>points this attempt</small></div><div><strong>${state.xp.toLocaleString()}</strong><small>total points</small></div></div><div class="flow-footer"><button class="text-button" type="button" data-back-lessons>Back to levels</button>${action}</div>`;
+  const title = submissionError ? 'Attempt not saved' : didPass ? 'Congratulations, you passed!' : 'Good try!';
+  const message = submissionError
+    ? `Your answers were not verified or added to your points. ${submissionError}`
+    : didPass
+      ? `You passed ${lesson.title} with ${answerScore} out of 10.`
+      : `You earned ${answerScore} out of 10. You need 7 to pass. Your next try can be stronger.`;
+  const action = submissionError
+    ? '<button class="primary-button" type="button" data-retry-lesson>Retry level <span>↻</span></button>'
+    : didPass
+      ? '<button class="primary-button" type="button" data-show-proof>View completion proof <span>→</span></button>'
+      : '<button class="primary-button" type="button" data-retry-lesson>Retry level <span>↻</span></button>';
+  $('#lesson-flow-content').innerHTML = `<div class="result-burst ${didPass ? 'pass-burst' : 'retry-burst'}">${didPass ? '✦' : '↻'}</div><p class="eyebrow">LEVEL ${activeLessonIndex + 1} ${passedBefore ? 'REPLAY' : 'RESULT'}</p><h1 id="flow-title">${title}</h1><p class="flow-lead">${message}</p><div class="score-summary"><div><strong>${answerScore}<span>/10</span></strong><small>${submissionError ? 'correct before verification failed' : 'points this attempt'}</small></div><div><strong>${state.xp.toLocaleString()}</strong><small>total points</small></div></div><div class="flow-footer"><button class="text-button" type="button" data-back-lessons>Back to levels</button>${action}</div>`;
   $('[data-show-proof]')?.addEventListener('click', renderProof);
   $('[data-retry-lesson]')?.addEventListener('click', () => openLesson(activeLessonIndex));
   $('[data-back-lessons]').addEventListener('click', () => { closeLesson(); setView('lessons'); });
-  playResultSound(didPass);
+  if (!submissionError) playResultSound(didPass);
 }
 
 function renderProof() {
@@ -970,7 +977,7 @@ function renderProof() {
   canvas.className = 'proof-canvas';
   canvas.setAttribute('role', 'img');
   const stamp = new Date();
-  proofCode = `RT-${stamp.getTime().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  proofCode = `BM-${stamp.getTime().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   canvas.setAttribute('aria-label', `You've completed Level ${activeLessonIndex + 1}! ${lesson.title}. Score ${answerScore} out of 10. Total points ${state.xp}. Verification ${proofCode}.`);
   const context = canvas.getContext('2d');
   context.fillStyle = '#f7f9fc';
@@ -982,7 +989,7 @@ function renderProof() {
   context.fillRect(42, 42, 1116, 150);
   context.fillStyle = '#f2b632';
   context.font = '700 28px Arial';
-  context.fillText('RENE-TECH  /  COMPUTER SYSTEM SERVICING', 84, 105);
+  context.fillText('BENCHMARK  /  COMPUTER SYSTEM SERVICING', 84, 105);
   context.fillStyle = '#ffffff';
   context.font = '700 48px Arial';
   context.fillText('CERTIFICATE OF COMPLETION', 84, 162);
@@ -1006,7 +1013,7 @@ function renderProof() {
   $('.proof-image-wrap').append(canvas);
   $('[data-download-proof]').addEventListener('click', () => {
     const link = document.createElement('a');
-    link.download = `renetech-level-${activeLessonIndex + 1}-${proofCode}.png`;
+    link.download = `benchmark-level-${activeLessonIndex + 1}-${proofCode}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   });
@@ -1017,25 +1024,11 @@ function renderProof() {
 function renderLeaderboard() {
   const container = $('#leaderboard-content');
   container.replaceChildren();
-  if (!state.identity) {
-    container.innerHTML = '<form class="identity-form" id="identity-form"><span class="leaderboard-icon">✦</span><h2>Choose your leaderboard name</h2><p>Enter your last name to appear in the rankings.</p><label for="leaderboard-name">Last name</label><div class="identity-controls"><input id="leaderboard-name" name="lastName" maxlength="24" autocomplete="family-name" required><button class="primary-button" type="submit">Join leaderboard <span>→</span></button></div></form><p class="local-note">Your points sync to the shared leaderboard when you join.</p>';
-    $('#identity-form').addEventListener('submit', event => {
-      event.preventDefault();
-      const name = $('#leaderboard-name').value.trim().replace(/\s+/g, ' ');
-      if (!name) return;
-      state.identity = name.slice(0, 24);
-      syncPlayerScore();
-      persist();
-      loadSharedLeaderboard();
-    });
-    return;
-  }
   const heading = document.createElement('div');
   heading.className = 'leaderboard-heading';
   heading.innerHTML = '<span>POS.</span><span>PLAYER · LEVEL · RANK</span><span>TOTAL POINTS</span>';
   container.append(heading);
-  const entries = (state.sharedEntries || Object.values(state.players))
-    .sort((first, second) => second.points - first.points || first.name.localeCompare(second.name));
+  const entries = state.sharedEntries || [];
   entries.forEach((entry, index) => {
     const row = document.createElement('div');
     row.className = `leaderboard-row${entry.player_id === state.playerId ? ' current-player' : ''}`;
@@ -1043,13 +1036,21 @@ function renderLeaderboard() {
     const rank = document.createElement('strong'); rank.textContent = String(index + 1).padStart(2, '0');
     const player = document.createElement('span');
     player.className = 'leaderboard-player';
+    const avatar = document.createElement('span');
+    avatar.className = 'avatar avatar-sprite leaderboard-avatar';
+    renderAvatar(avatar, entry.avatar_id);
     const name = document.createElement('strong');
     name.className = 'leaderboard-name';
     name.textContent = entry.name;
+    const cosmetic = entry.equipped_cosmetics || {};
+    name.style.color = cosmetic.nameColor || '#202b3a';
+    name.style.fontFamily = cosmetic.font || 'Arial, Helvetica, sans-serif';
+    if (cosmetic.glow) name.classList.add('leaderboard-glow');
     const badges = document.createElement('span');
     badges.className = 'leaderboard-badges';
     badges.innerHTML = `<span class="leaderboard-badge level-badge-small">Level ${levelForPoints(Number(entry.points))}</span><span class="leaderboard-badge rank-badge-small">${rankForPoints(Number(entry.points)).name}</span>`;
-    player.append(name, badges);
+    player.style.backgroundColor = cosmetic.background || 'transparent';
+    player.append(avatar, name, badges);
     const points = document.createElement('strong'); points.textContent = `${Number(entry.points).toLocaleString()} pts`;
     row.append(rank, player, points);
     container.append(row);
@@ -1058,36 +1059,326 @@ function renderLeaderboard() {
   note.className = 'local-note';
   note.textContent = state.sharedLoading
     ? 'Loading the shared leaderboard…'
-    : state.sharedEntries && state.sharedError
-      ? `${state.sharedError} Showing current shared scores.`
-    : state.sharedEntries
-      ? `Signed in as ${state.identity}. Showing shared scores.`
-      : state.sharedError
-        ? `${state.sharedError} Showing scores saved on this device.`
-        : `Signed in as ${state.identity}. Shared scores will load when refreshed.`;
+    : state.sharedError
+      ? state.sharedError
+      : state.userId
+        ? `Signed in as ${state.identity}. ${entries.length ? 'Showing shared scores.' : 'Complete a level or Timed Challenge to appear here.'}`
+        : 'Leaderboard scores are public. Sign in to earn and save points.';
   container.append(note);
 }
 
 function setView(view) {
-  if (activeBoss && !$('#lesson-flow').hidden) closeLesson();
+  if (activeGameMode === 'timed' && !$('#lesson-flow').hidden) closeLesson();
   document.body.classList.add('app-entered');
   $('.sidebar').classList.remove('open');
   $$('.view').forEach(section => section.classList.toggle('active', section.dataset.page === view));
   $$('.nav-item').forEach(link => link.classList.toggle('active', link.dataset.view === view));
-  $('#page-title').textContent = ({ home: 'Your learning garden', lessons: 'Play', progress: 'Your progress', leaderboard: 'Leaderboard' })[view] || 'Your learning garden';
+  $('#page-title').textContent = ({ home: 'Your learning garden', lessons: 'Play', progress: 'Your progress', leaderboard: 'Leaderboard', settings: 'Settings' })[view] || 'Your learning garden';
   if (view === 'leaderboard') {
     renderLeaderboard();
-    if (state.identity && !state.sharedLoading) loadSharedLeaderboard();
+    if (!state.sharedLoading) loadSharedLeaderboard();
   }
   if (window.location.hash !== `#${view}`) window.location.hash = view;
 }
 
-function updateSoundButton() {
-  const button = $('#sound-toggle');
-  button.textContent = state.muted ? 'Sound off' : 'Sound on';
-  button.setAttribute('aria-pressed', String(state.muted));
-  button.setAttribute('aria-label', state.muted ? 'Turn sound on' : 'Mute sound');
+function storedSettingsKey(userId = state.userId) {
+  return `benchmark-settings-${userId || 'guest'}`;
 }
+
+function applySettings() {
+  document.body.classList.toggle('dark-mode', state.settings.darkMode);
+  $('#master-volume').value = String(state.settings.masterVolume);
+  $('#volume-value').textContent = `${state.settings.masterVolume}%`;
+  $('#effects-enabled').checked = state.settings.effectsEnabled;
+  $('#music-enabled').checked = state.settings.musicEnabled;
+  $('#dark-mode').checked = state.settings.darkMode;
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(storedSettingsKey(), JSON.stringify(state.settings));
+  } catch {
+    toast('Settings could not be saved in this browser.');
+  }
+  if (!state.userId || !supabaseClient) return;
+  const userId = state.userId;
+  const settings = { ...state.settings };
+  clearTimeout(settingsSyncTimer);
+  settingsSyncTimer = setTimeout(async () => {
+    const { error } = await supabaseClient.from('user_settings').upsert({
+      user_id: userId,
+      master_volume: settings.masterVolume,
+      effects_enabled: settings.effectsEnabled,
+      music_enabled: settings.musicEnabled,
+      dark_mode: settings.darkMode,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' });
+    if (error) toast(`Settings were saved on this device but not in Supabase: ${error.message}`);
+  }, 250);
+}
+
+async function loadUserSettings(userId) {
+  let localSettings = {};
+  try {
+    localSettings = JSON.parse(localStorage.getItem(storedSettingsKey(userId)) || '{}');
+  } catch {
+    toast('Your saved settings could not be read from this browser.');
+  }
+  const { data, error } = await supabaseClient.from('user_settings')
+    .select('master_volume, effects_enabled, music_enabled, dark_mode')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  state.settings = data
+    ? {
+      masterVolume: Number(data.master_volume),
+      effectsEnabled: data.effects_enabled,
+      musicEnabled: data.music_enabled,
+      darkMode: data.dark_mode
+    }
+    : { ...state.settings, ...localSettings };
+  applySettings();
+  if (!data) saveSettings();
+}
+
+async function invokeGameAction(body) {
+  if (!supabaseClient) throw new Error('Supabase is not configured for this site.');
+  const { data, error } = await supabaseClient.functions.invoke('benchmark-game', { body });
+  if (error) throw error;
+  return data;
+}
+
+function renderAuthState() {
+  const signedIn = Boolean(state.userId);
+  $('#auth-status').textContent = signedIn
+    ? `Signed in as ${state.identity}. Your profile and verified scores are saved to Supabase.`
+    : 'Use a username and password to save your profile and verified scores.';
+  $('#auth-form').hidden = signedIn;
+  $('#sign-out').hidden = !signedIn;
+  $('#cosmetics-status').textContent = signedIn
+    ? 'Unlocked styles can be equipped and changed at any time.'
+    : 'Sign in to unlock and save leaderboard styles.';
+  renderCosmeticControls();
+  renderPlayerProfile();
+}
+
+async function activateSession(user) {
+  const profileData = await invokeGameAction({ action: 'sync_profile' });
+  state.userId = user.id;
+  state.playerId = user.id;
+  state.identity = user.user_metadata?.username || profileData.profile.username;
+  state.profile = profileData.profile;
+  state.displayName = profileData.profile.display_name;
+  state.xp = Number(profileData.points);
+  state.passed = (profileData.completed_levels || []).map(level => Number(level) - 1);
+  state.cosmeticOptions = profileData.cosmetic_options;
+  state.equippedCosmetics = profileData.profile.equipped_cosmetics;
+  await loadUserSettings(user.id);
+  renderAuthState();
+  updateStats();
+  renderLessons();
+  await loadSharedLeaderboard();
+  persist();
+}
+
+function usernameToAuthIdentity(value) {
+  const username = value.trim().toLowerCase();
+  return { username, email: `${username}@benchmark.app` };
+}
+
+async function createAccount() {
+  if (!supabaseClient) throw new Error('Supabase is not configured for this site.');
+  const { username, email } = usernameToAuthIdentity($('#auth-username').value);
+  const password = $('#auth-password').value;
+  if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+    throw new Error('Username must be 3 to 24 letters, numbers, or underscores.');
+  }
+  if (password.length < 8) throw new Error('Password must be at least 8 characters.');
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { username } }
+  });
+  if (error) throw error;
+  if (!data.session) {
+    throw new Error('No sign-in session was created. Confirm that email confirmation is disabled in Supabase Auth settings.');
+  }
+  await activateSession(data.user);
+  toast('Account created. Your settings and progress will now sync.');
+}
+
+async function signIn() {
+  if (!supabaseClient) throw new Error('Supabase is not configured for this site.');
+  const { username, email } = usernameToAuthIdentity($('#auth-username').value);
+  const password = $('#auth-password').value;
+  if (!/^[a-z0-9_]{3,24}$/.test(username)) {
+    throw new Error('Enter a username containing 3 to 24 letters, numbers, or underscores.');
+  }
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+  if (error) throw error;
+  await activateSession(data.user);
+  toast(`Welcome back, ${state.identity}.`);
+}
+
+async function signOut() {
+  if (!supabaseClient) return;
+  const { error } = await supabaseClient.auth.signOut();
+  if (error) throw error;
+  state.userId = '';
+  state.playerId = '';
+  state.identity = '';
+  state.displayName = '';
+  state.profile = null;
+  state.cosmeticOptions = null;
+  state.sharedEntries = null;
+  state.leaderboardPlacement = null;
+  state.xp = 0;
+  state.passed = [];
+  state.attempts = [];
+  let guestSettings = {};
+  try {
+    guestSettings = JSON.parse(localStorage.getItem('benchmark-settings-guest') || '{}');
+  } catch {
+    toast('Guest settings could not be restored. Default settings are active.');
+  }
+  state.settings = {
+    masterVolume: 70,
+    effectsEnabled: true,
+    musicEnabled: false,
+    darkMode: false,
+    ...guestSettings
+  };
+  applySettings();
+  renderAuthState();
+  updateStats();
+  renderLessons();
+  renderLeaderboard();
+  toast('You have signed out.');
+}
+
+function renderAvatarPicker() {
+  const picker = $('#avatar-picker');
+  const avatars = [...Array.from({ length: 6 }, (_, index) => `badge-${index + 1}`), ...Array.from({ length: 6 }, (_, index) => `flat-${index + 1}`)];
+  picker.innerHTML = avatars.map(avatar => `<button class="avatar-choice" type="button" data-avatar-id="${avatar}"><span class="avatar avatar-sprite" data-avatar="${avatar}" role="img" aria-label="${avatar.replace('-', ' ')}"></span><span>${avatar.startsWith('badge') ? 'Badge' : 'Flat'} ${avatar.split('-')[1]}</span></button>`).join('');
+  picker.hidden = !picker.hidden;
+  $$('[data-avatar-id]', picker).forEach(button => button.addEventListener('click', () => {
+    void updatePlayerProfile({ avatar_id: button.dataset.avatarId });
+  }));
+}
+
+async function updatePlayerProfile(changes = {}) {
+  const displayName = changes.display_name ?? state.profile?.display_name ?? state.displayName ?? state.identity ?? 'Guest';
+  const avatarId = changes.avatar_id ?? state.profile?.avatar_id ?? saved.avatarId ?? 'badge-1';
+  if (state.userId) {
+    try {
+      const data = await invokeGameAction({
+        action: 'update_profile',
+        display_name: displayName,
+        avatar_id: avatarId,
+        cosmetics: changes.cosmetics
+      });
+      state.profile = data.profile;
+      state.displayName = data.profile.display_name;
+      state.cosmeticOptions = data.cosmetic_options || state.cosmeticOptions;
+      state.equippedCosmetics = data.profile.equipped_cosmetics;
+      state.xp = Number(data.points);
+      state.passed = (data.completed_levels || []).map(level => Number(level) - 1);
+      toast('Profile updated.');
+    } catch (error) {
+      toast(`Profile could not be updated: ${error.message}`);
+      return;
+    }
+  } else {
+    state.displayName = displayName;
+    saved.avatarId = avatarId;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...saved,
+        displayName: state.displayName,
+        avatarId,
+        xp: state.xp,
+        passed: state.passed,
+        attempts: state.attempts,
+        settings: state.settings
+      }));
+    } catch {
+      toast('Profile could not be saved in this browser.');
+      return;
+    }
+    toast('Profile saved on this device. Sign in to sync it to Supabase.');
+  }
+  $('#avatar-picker').hidden = true;
+  $('#profile-editor').hidden = true;
+  renderAuthState();
+  updateStats();
+  await loadSharedLeaderboard();
+}
+
+function renderCosmeticControls() {
+  const container = $('#cosmetics-controls');
+  if (!state.userId || !state.cosmeticOptions || !state.profile) {
+    container.innerHTML = '';
+    return;
+  }
+  const fields = [
+    { key: 'nameColors', id: 'nameColorId', label: 'Name color' },
+    { key: 'fonts', id: 'fontId', label: 'Font' },
+    { key: 'backgrounds', id: 'backgroundId', label: 'Background' },
+    { key: 'glows', id: 'glowId', label: 'Name glow' }
+  ];
+  container.innerHTML = fields.map(field => {
+    const options = state.cosmeticOptions[field.key];
+    const unlocked = state.profile.unlocked_cosmetics?.[field.key] || [];
+    const selected = state.profile.equipped_cosmetics?.[field.id];
+    return `<label class="cosmetic-control">${field.label}<select data-cosmetic-field="${field.id}">${options.map(option => {
+      const available = unlocked.includes(option.id);
+      const requirement = option.points ? ` · ${option.points} points` : option.levels ? ` · ${option.levels} levels` : '';
+      return `<option value="${option.id}"${selected === option.id ? ' selected' : ''}${available ? '' : ' disabled'}>${option.label}${available ? '' : ` (unlock${requirement})`}</option>`;
+    }).join('')}</select></label>`;
+  }).join('');
+  $$('[data-cosmetic-field]', container).forEach(select => select.addEventListener('change', () => {
+    const cosmetics = Object.fromEntries($$('[data-cosmetic-field]', container).map(field => [field.dataset.cosmeticField, field.value]));
+    void updatePlayerProfile({ cosmetics });
+  }));
+}
+
+$('#auth-form').addEventListener('submit', event => {
+  event.preventDefault();
+  void signIn().catch(error => toast(`Could not sign in: ${error.message}`));
+});
+$('#sign-up').addEventListener('click', () => {
+  void createAccount().catch(error => toast(`Could not create account: ${error.message}`));
+});
+$('#sign-out').addEventListener('click', () => {
+  void signOut().catch(error => toast(`Could not sign out: ${error.message}`));
+});
+$('#timed-challenge-start').addEventListener('click', () => void startTimedChallenge());
+$('#master-volume').addEventListener('input', event => {
+  state.settings.masterVolume = Number(event.currentTarget.value);
+  $('#volume-value').textContent = `${state.settings.masterVolume}%`;
+  saveSettings();
+});
+$('#effects-enabled').addEventListener('change', event => {
+  state.settings.effectsEnabled = event.currentTarget.checked;
+  saveSettings();
+});
+$('#dark-mode').addEventListener('change', event => {
+  state.settings.darkMode = event.currentTarget.checked;
+  applySettings();
+  saveSettings();
+});
+$('#edit-profile').addEventListener('click', () => {
+  const editor = $('#profile-editor');
+  editor.hidden = !editor.hidden;
+  $('#profile-display-name').value = state.profile?.display_name || state.displayName || state.identity || '';
+});
+$('#save-profile').addEventListener('click', () => {
+  void updatePlayerProfile({ display_name: $('#profile-display-name').value.trim() });
+});
+$('#change-avatar').addEventListener('click', renderAvatarPicker);
 
 $$('[data-view]').forEach(link => link.addEventListener('click', event => { event.preventDefault(); setView(link.dataset.view); }));
 $$('[data-filter]').forEach(tab => tab.addEventListener('click', () => {
@@ -1096,8 +1387,7 @@ $$('[data-filter]').forEach(tab => tab.addEventListener('click', () => {
   renderLessons();
 }));
 $$('[data-start-lesson], #next-level-start').forEach(button => button.addEventListener('click', () => {
-  if (button.dataset.bossLaunch !== undefined) openBossDifficulty();
-  else if (button.dataset.startLesson !== undefined && button.dataset.startLesson !== '') openLesson(Number(button.dataset.startLesson));
+  if (button.dataset.startLesson !== undefined && button.dataset.startLesson !== '') openLesson(Number(button.dataset.startLesson));
   else setView('lessons');
 }));
 $$('[data-enter-app]').forEach(button => button.addEventListener('click', () => setView('home')));
@@ -1110,28 +1400,56 @@ $('#leaderboard-refresh').addEventListener('click', async () => {
   button.disabled = true;
   await loadSharedLeaderboard();
   button.disabled = false;
-  toast(state.sharedEntries ? 'Shared leaderboard refreshed.' : 'Showing scores saved on this device.');
+  if (state.sharedEntries) toast('Shared leaderboard refreshed.');
 });
-$('#sound-toggle').addEventListener('click', () => { state.muted = !state.muted; persist(); updateSoundButton(); });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#lesson-flow').hidden) closeLesson(); });
 window.addEventListener('hashchange', () => {
   const view = window.location.hash.slice(1);
-  if (['home', 'lessons', 'progress', 'leaderboard'].includes(view)) setView(view);
+  if (['home', 'lessons', 'progress', 'leaderboard', 'settings'].includes(view)) setView(view);
 });
 
 function setLayout(layout, persistLayout = true) {
   document.body.classList.toggle('desktop-view', layout === 'desktop');
   document.body.classList.toggle('mobile-view', layout === 'mobile');
   $$('[data-layout]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.layout === layout)));
-  if (persistLayout) localStorage.setItem('renetech-layout', layout);
+  if (persistLayout) localStorage.setItem('benchmark-layout', layout);
 }
 
 $$('[data-layout]').forEach(button => button.addEventListener('click', () => setLayout(button.dataset.layout)));
-setLayout(localStorage.getItem('renetech-layout') || 'automatic', false);
-updateSoundButton();
+setLayout(localStorage.getItem('benchmark-layout') || 'automatic', false);
+applySettings();
+renderAuthState();
 updateStats();
 renderLessons();
 updateDate();
 setInterval(updateDate, 60_000);
 const initialView = window.location.hash.slice(1);
-if (['home', 'lessons', 'progress', 'leaderboard'].includes(initialView)) setView(initialView);
+if (['home', 'lessons', 'progress', 'leaderboard', 'settings'].includes(initialView)) setView(initialView);
+
+async function initializeAuth() {
+  if (!supabaseClient) {
+    $('#auth-status').textContent = 'Supabase is not configured. Local progress and settings remain available in this browser.';
+    return;
+  }
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    toast(`Could not restore your sign-in: ${error.message}`);
+    return;
+  }
+  if (data.session?.user) {
+    try {
+      await activateSession(data.session.user);
+    } catch (sessionError) {
+      toast(`Could not load your Benchmark profile: ${sessionError.message}`);
+    }
+  }
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    if (session?.user && session.user.id !== state.userId) {
+      setTimeout(() => {
+        void activateSession(session.user).catch(sessionError => toast(`Could not load your Benchmark profile: ${sessionError.message}`));
+      }, 0);
+    }
+  });
+}
+
+void initializeAuth();
