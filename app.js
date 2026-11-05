@@ -244,6 +244,11 @@ const state = {
     darkMode: false
   }
 };
+const backgroundMusic = $('#background-music');
+let musicUnlocked = false;
+let musicPlaybackErrorShown = false;
+let resultEffectActive = false;
+let resultEffectCleanup = null;
 let savedSettings = null;
 try {
   savedSettings = JSON.parse(localStorage.getItem('benchmark-settings-guest') || '{}');
@@ -458,15 +463,59 @@ function playSound(kind) {
   const audio = document.getElementById(soundIds[kind]);
   if (!audio) return;
   if (currentEffect && currentEffect !== audio) currentEffect.pause();
+  resultEffectCleanup?.();
   audio.pause();
   audio.currentTime = 0;
   audio.volume = state.settings.masterVolume / 100;
   currentEffect = audio;
-  audio.play().catch(() => toast('This browser blocked audio playback. Check the browser sound settings.'));
+  let cleanupResultEffect = null;
+  if (kind === 'applaud' || kind === 'aww') {
+    resultEffectActive = true;
+    backgroundMusic.pause();
+    const resumeMusic = () => {
+      audio.removeEventListener('ended', resumeMusic);
+      audio.removeEventListener('error', resumeMusic);
+      if (currentEffect === audio) currentEffect = null;
+      if (resultEffectCleanup === resumeMusic) resultEffectCleanup = null;
+      resultEffectActive = false;
+      syncBackgroundMusic();
+    };
+    cleanupResultEffect = resumeMusic;
+    resultEffectCleanup = resumeMusic;
+    audio.addEventListener('ended', resumeMusic, { once: true });
+    audio.addEventListener('error', resumeMusic, { once: true });
+  }
+  audio.play().catch(() => {
+    cleanupResultEffect?.();
+    toast('This browser blocked audio playback. Check the browser sound settings.');
+  });
 }
 
 function playResultSound(didWin) {
   playSound(didWin ? 'applaud' : 'aww');
+}
+
+function syncBackgroundMusic() {
+  backgroundMusic.volume = Math.min(1, Math.max(0, state.settings.masterVolume / 100 * 0.4));
+  if (!state.settings.musicEnabled || !musicUnlocked || document.hidden || resultEffectActive || backgroundMusic.volume === 0) {
+    backgroundMusic.pause();
+    return;
+  }
+  if (backgroundMusic.paused) {
+    backgroundMusic.play().then(() => {
+      musicPlaybackErrorShown = false;
+    }).catch(() => {
+      if (!musicPlaybackErrorShown) {
+        musicPlaybackErrorShown = true;
+        toast('Background music could not be played. Check the browser sound settings.');
+      }
+    });
+  }
+}
+
+function unlockBackgroundMusic() {
+  musicUnlocked = true;
+  syncBackgroundMusic();
 }
 
 function openLesson(index) {
@@ -1092,6 +1141,7 @@ function applySettings() {
   $('#effects-enabled').checked = state.settings.effectsEnabled;
   $('#music-enabled').checked = state.settings.musicEnabled;
   $('#dark-mode').checked = state.settings.darkMode;
+  syncBackgroundMusic();
 }
 
 function saveSettings() {
@@ -1359,10 +1409,16 @@ $('#timed-challenge-start').addEventListener('click', () => void startTimedChall
 $('#master-volume').addEventListener('input', event => {
   state.settings.masterVolume = Number(event.currentTarget.value);
   $('#volume-value').textContent = `${state.settings.masterVolume}%`;
+  syncBackgroundMusic();
   saveSettings();
 });
 $('#effects-enabled').addEventListener('change', event => {
   state.settings.effectsEnabled = event.currentTarget.checked;
+  saveSettings();
+});
+$('#music-enabled').addEventListener('change', event => {
+  state.settings.musicEnabled = event.currentTarget.checked;
+  syncBackgroundMusic();
   saveSettings();
 });
 $('#dark-mode').addEventListener('change', event => {
@@ -1403,6 +1459,12 @@ $('#leaderboard-refresh').addEventListener('click', async () => {
   if (state.sharedEntries) toast('Shared leaderboard refreshed.');
 });
 document.addEventListener('keydown', event => { if (event.key === 'Escape' && !$('#lesson-flow').hidden) closeLesson(); });
+document.addEventListener('pointerdown', unlockBackgroundMusic, { capture: true });
+document.addEventListener('keydown', unlockBackgroundMusic, { capture: true });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) backgroundMusic.pause();
+  else syncBackgroundMusic();
+});
 window.addEventListener('hashchange', () => {
   const view = window.location.hash.slice(1);
   if (['home', 'lessons', 'progress', 'leaderboard', 'settings'].includes(view)) setView(view);

@@ -31,6 +31,6 @@ npm run build
 - Timed Challenge lasts 60 seconds. The Edge Function grades submitted answers, assigns the answer points plus only the highest reached bonus tier, and stores the result.
 - Cosmetic unlock thresholds and available styles are configured in `supabase/functions/_shared/cosmetics.ts`.
 - Avatar artwork stays in the two original 3-by-2 transparent sprite sheets under `assets/avatars`; CSS positions each avatar inside a circular frame.
-- `assets/sounds/` contains the four supplied sound effects. Background music playback is pending a music file from the project owner.
+- `assets/sounds/` contains the four sound effects and the looping `Music.mp3` background track. Background music is independently controlled in Settings, plays at 40% of Master volume, and starts after the player's first interaction.
 
 The previous anonymous `leaderboard_entries` table is made inaccessible to browser roles by the migration. Its rows are retained privately; new public scores come from the RLS-protected `benchmark_leaderboard` view.
