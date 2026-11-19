@@ -12,7 +12,7 @@ npm run build
 
 ## Supabase setup
 
-1. Apply `supabase/migrations/20261105000000_benchmark.sql` in the Supabase SQL Editor, or apply the migration with the Supabase CLI.
+1. Apply `supabase/migrations/20261105000000_benchmark.sql` and `supabase/migrations/20261117000000_train_mode.sql` in the Supabase SQL Editor, or apply the migrations with the Supabase CLI.
 2. Deploy the `benchmark-game` Edge Function:
 
    ```powershell
@@ -27,8 +27,9 @@ npm run build
 
 ## Player features
 
-- Train mode reuses the lesson summaries, questions, answers, explanations, and matching pairs in `app.js`; it never awards points.
-- Timed Challenge lasts 60 seconds. The Edge Function grades submitted answers, assigns the answer points plus only the highest reached bonus tier, and stores the result.
+- Train mode randomizes questions and answer choices, gives a hint after an incorrect answer, and reveals the answer only after two misses; training sessions never award points or progress.
+- Correct answers and explanations stay in the `benchmark-game` Edge Function. Level and Timed Challenge responses are recorded server-side before their scores are awarded.
+- Timed Challenge lasts 60 seconds. The Edge Function grades recorded answers, assigns the answer points plus only the highest reached bonus tier, and stores the result.
 - Cosmetic unlock thresholds and available styles are configured in `supabase/functions/_shared/cosmetics.ts`.
 - Avatar artwork stays in the two original 3-by-2 transparent sprite sheets under `assets/avatars`; CSS positions each avatar inside a circular frame.
 - `assets/sounds/` contains the four sound effects and the looping `Music.mp3` background track. Background music is independently controlled in Settings, plays at 40% of Master volume, and starts after the player's first interaction.

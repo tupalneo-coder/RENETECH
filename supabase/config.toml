@@ -3,4 +3,4 @@ enable_signup = true
 enable_confirmations = false
 
 [functions.benchmark-game]
-verify_jwt = true
+verify_jwt = false

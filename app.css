@@ -487,15 +487,8 @@ body.mobile-view .splash-copy h1 { font-size: 44px; }
 .mode-card:hover { border-color: var(--blue); background: var(--surface-soft); }
 .mode-card strong { color: var(--text-heading); font-size: 23px; }
 .mode-card span, .mode-card small { color: var(--muted); }
-.training-list { display: grid; gap: 14px; max-height: 55vh; overflow-y: auto; margin: 20px 0; padding-right: 5px; }
-.training-question { padding: 17px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-raised); }
-.training-question h2 { margin: 3px 0 12px; color: var(--ink); font-size: 17px; }
-.training-answer, .training-explanation, .training-missing { margin: 8px 0 0; color: var(--muted); }
-.training-answer strong, .training-explanation strong { color: var(--text-heading); }
-.training-matches { display: grid; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
-.training-matches li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 4px; background: var(--surface); }
-.training-matches li strong { color: var(--text-heading); }
 .progress-dashboard + .profile-panel { margin-top: 18px; }
+.profile-panel { max-width: 900px; margin-right: auto; margin-left: auto; }
 .profile-summary { display: flex; align-items: center; gap: 18px; }
 .profile-avatar { width: 82px; height: 82px; flex: 0 0 82px; border-color: var(--line); }
 .profile-details { min-width: 0; flex: 1; }
@@ -580,7 +573,7 @@ body.dark-mode .splash-footer { color: var(--text-heading); }
 body.dark-mode .splash-footer span:first-child { color: var(--text-on-dark); }
 body.dark-mode .lesson-row.locked, body.dark-mode .progress-rank-report,
 body.dark-mode .summary-points li, body.dark-mode .mode-card,
-body.dark-mode .training-question, body.dark-mode .score-summary > div,
+body.dark-mode .score-summary > div,
 body.dark-mode .answer-choice, body.dark-mode .fill-word-choice,
 body.dark-mode .matching-choice, body.dark-mode .identity-controls input,
 body.dark-mode .profile-editor input, body.dark-mode .settings-panel input:not([type="checkbox"]):not([type="range"]),
@@ -600,7 +593,6 @@ body.dark-mode .celebration-overlay { background: var(--surface); color: var(--t
 body.dark-mode .celebration-perfect { background: #30291c; }
 body.dark-mode .celebration-steady { background: #1c2b40; }
 body.dark-mode .celebration-encouraging { background: #203327; }
-body.dark-mode .training-matches li { background: var(--surface-soft); }
 
 @media (max-width: 720px) {
   .timed-challenge-card, .profile-summary { align-items: flex-start; flex-direction: column; }

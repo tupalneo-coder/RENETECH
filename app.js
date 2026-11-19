@@ -36,10 +36,10 @@ const supabaseConfig = window.BENCHMARK_SUPABASE_CONFIG || {};
 const supabaseClient = supabaseConfig.url && supabaseConfig.publishableKey && window.supabase?.createClient
   ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.publishableKey)
   : null;
-const mc = (prompt, options, answer, explanation) => ({ type: 'multiple-choice', prompt, options, answer, explanation });
-const tf = (prompt, answer, explanation) => mc(prompt, ['True', 'False'], answer, explanation);
-const fill = (prompt, choices, answer, explanation) => ({ type: 'fill-blank', prompt, choices, answer, explanation });
-const matching = (prompt, pairs) => ({ type: 'matching', prompt, pairs });
+const mc = (prompt, options) => ({ type: 'multiple-choice', prompt, options });
+const tf = prompt => mc(prompt, ['True', 'False']);
+const fill = (prompt, choices) => ({ type: 'fill-blank', prompt, choices });
+const matching = (prompt, left, right) => ({ type: 'matching', prompt, left, right });
 
 const lessons = [
   {
@@ -47,26 +47,16 @@ const lessons = [
     description: 'Learn safe work habits that protect you and computer components.',
     summary: ['Follow Occupational Health and Safety standards.', 'Power off and unplug before working; ground yourself before touching components.', 'Handle parts by their edges, keep liquids away, clean with a brush or air, and never force a component.'],
     questions: [
-      mc('What does OHS stand for?', ['Office Health System', 'Occupational Health and Safety', 'Operational Hardware Standards', 'Organizational Health Service'], 'Occupational Health and Safety', 'OHS is short for Occupational Health and Safety.'),
-      mc('Which Republic Act covers Occupational Safety and Health Standards?', ['RA 10173', 'RA 11058', 'RA 9155', 'RA 7877'], 'RA 11058', 'Republic Act 11058 covers Occupational Safety and Health Standards.'),
-      tf('True or False: It is okay to work alone on a computer as long as you are careful.', 'False', 'Do not work alone; safe work practices include having appropriate assistance.'),
-      mc('Before working on a computer, what should you always do first?', ['Turn up the brightness', 'Power off and unplug the computer', 'Open all programs', 'Connect to Wi-Fi'], 'Power off and unplug the computer', 'Disconnecting power reduces electrical and equipment risks.'),
-      fill('Before touching a computer component, *__* yourself to discharge static electricity.', ['ground', 'insulate', 'charge', 'disconnect'], 'ground', 'Grounding discharges static electricity that could damage components.'),
-      matching('Match each safe work habit with the right action.', [
-        { left: 'Handle a circuit board', right: 'Hold it by the edges' },
-        { left: 'Prepare to work inside a computer', right: 'Power off and unplug it' },
-        { left: 'Reduce static electricity', right: 'Ground yourself' },
-        { left: 'Remove dust', right: 'Use a brush or compressed air' }
-      ]),
-      tf('True or False: Liquids should be kept near your working area for convenience.', 'False', 'Keep liquids away from the work area to prevent spills and damage.'),
-      matching('Match each safety concern with the best response.', [
-        { left: 'Liquid near components', right: 'Keep it away from the work area' },
-        { left: 'A component will not fit', right: 'Check alignment; never force it' },
-        { left: 'Dust on a computer', right: 'Clean with a brush or air' },
-        { left: 'Sensitive circuitry', right: 'Avoid touching it directly' }
-      ]),
-      fill('If a component does not fit easily, *__* it into place.', ['never force', 'gently hammer', 'bend', 'push hard'], 'never force', 'Check alignment and connections rather than forcing a component.'),
-      mc('According to this level, what is the most important rule?', ['Speed 1st', 'Safety 1st', 'Cost 1st', 'Convenience 1st'], 'Safety 1st', 'Safety comes before speed, cost, or convenience.')
+      mc('What does OHS stand for?', ['Office Health System', 'Occupational Health and Safety', 'Operational Hardware Standards', 'Organizational Health Service']),
+      mc('Which Republic Act covers Occupational Safety and Health Standards?', ['RA 10173', 'RA 11058', 'RA 9155', 'RA 7877']),
+      tf('True or False: It is okay to work alone on a computer as long as you are careful.'),
+      mc('Before working on a computer, what should you always do first?', ['Turn up the brightness', 'Power off and unplug the computer', 'Open all programs', 'Connect to Wi-Fi']),
+      fill('Before touching a computer component, *__* yourself to discharge static electricity.', ['ground', 'insulate', 'charge', 'disconnect']),
+      matching('Match each safe work habit with the right action.', ["Handle a circuit board","Prepare to work inside a computer","Reduce static electricity","Remove dust"], ["Hold it by the edges","Power off and unplug it","Ground yourself","Use a brush or compressed air"]),
+      tf('True or False: Liquids should be kept near your working area for convenience.'),
+      matching('Match each safety concern with the best response.', ["Liquid near components","A component will not fit","Dust on a computer","Sensitive circuitry"], ["Keep it away from the work area","Check alignment; never force it","Clean with a brush or air","Avoid touching it directly"]),
+      fill('If a component does not fit easily, *__* it into place.', ['never force', 'gently hammer', 'bend', 'push hard']),
+      mc('According to this level, what is the most important rule?', ['Speed 1st', 'Safety 1st', 'Cost 1st', 'Convenience 1st'])
     ]
   },
   {
@@ -74,21 +64,16 @@ const lessons = [
     description: 'Explore common roles in Computer System Servicing.',
     summary: ['Computer assemblers produce and assemble computer parts.', 'Network technicians build and troubleshoot networks; service technicians set up hardware and software.', 'Maintenance technicians support daily computer performance, while repairmen diagnose and repair customer devices.'],
     questions: [
-      mc('Who is responsible for producing components and assembling computer parts?', ['Computer Assembler', 'Network Technician', 'Technical Support Staff', 'Computer Repairman'], 'Computer Assembler', 'Computer assemblers produce components and assemble computer parts.'),
-      mc('Which job involves building and troubleshooting computer networks?', ['Computer Service Technician', 'Network Technician', 'Computer Assembler', 'Computer Maintenance Technician'], 'Network Technician', 'Network technicians build and troubleshoot computer networks.'),
-      fill('A *__* Technician sets up hardware and configures software and drivers.', ['Computer Service', 'Network', 'Computer Repair', 'Maintenance'], 'Computer Service', 'Computer service technicians set up hardware and configure software and drivers.'),
-      tf('True or False: A Technical Support Staff may handle installation of devices and software.', 'True', 'Technical support staff may install devices and software.'),
-      mc('Which job is responsible for maintaining and providing technical support to overall daily computer performance?', ['Computer Maintenance Technician', 'Network Technician', 'Computer Assembler', 'Technical Support Staff'], 'Computer Maintenance Technician', 'Computer maintenance technicians support overall daily computer performance.'),
-      matching('Match each CSS role with its main responsibility.', [
-        { left: 'Computer Assembler', right: 'Produces components and assembles computer parts' },
-        { left: 'Network Technician', right: 'Builds and troubleshoots computer networks' },
-        { left: 'Computer Repairman', right: 'Diagnoses and repairs customer devices' },
-        { left: 'Computer Maintenance Technician', right: 'Supports day-to-day computer performance' }
-      ]),
-      tf('True or False: A Network Technician is considered an information technology professional.', 'True', 'A Network Technician is an information technology professional.'),
-      mc('Which job title is often common in businesses that provide repair and maintenance services?', ['Computer Repairman', 'Network Technician', 'Computer Assembler', 'Technical Support Staff'], 'Computer Repairman', 'Computer Repairman is a common title in repair and maintenance businesses.'),
-      fill('A Computer Maintenance Technician has a more *__* set of skills compared to other CSS jobs.', ['diverse', 'limited', 'specialized', 'narrow'], 'diverse', 'The role uses a diverse set of skills across computer maintenance.'),
-      fill('Technical Support Staff often handle *__*, installation, and configuration across organizations.', ['maintenance', 'network cabling', 'component manufacturing', 'circuit design'], 'maintenance', 'Technical support staff handle maintenance, installation, and configuration across organizations.')
+      mc('Who is responsible for producing components and assembling computer parts?', ['Computer Assembler', 'Network Technician', 'Technical Support Staff', 'Computer Repairman']),
+      mc('Which job involves building and troubleshooting computer networks?', ['Computer Service Technician', 'Network Technician', 'Computer Assembler', 'Computer Maintenance Technician']),
+      fill('A *__* Technician sets up hardware and configures software and drivers.', ['Computer Service', 'Network', 'Computer Repair', 'Maintenance']),
+      tf('True or False: A Technical Support Staff may handle installation of devices and software.'),
+      mc('Which job is responsible for maintaining and providing technical support to overall daily computer performance?', ['Computer Maintenance Technician', 'Network Technician', 'Computer Assembler', 'Technical Support Staff']),
+      matching('Match each CSS role with its main responsibility.', ["Computer Assembler","Network Technician","Computer Repairman","Computer Maintenance Technician"], ["Produces components and assembles computer parts","Builds and troubleshoots computer networks","Diagnoses and repairs customer devices","Supports day-to-day computer performance"]),
+      tf('True or False: A Network Technician is considered an information technology professional.'),
+      mc('Which job title is often common in businesses that provide repair and maintenance services?', ['Computer Repairman', 'Network Technician', 'Computer Assembler', 'Technical Support Staff']),
+      fill('A Computer Maintenance Technician has a more *__* set of skills compared to other CSS jobs.', ['diverse', 'limited', 'specialized', 'narrow']),
+      fill('Technical Support Staff often handle *__*, installation, and configuration across organizations.', ['maintenance', 'network cabling', 'component manufacturing', 'circuit design'])
     ]
   },
   {
@@ -96,26 +81,16 @@ const lessons = [
     description: 'Identify core computer components, ports, and what they do.',
     summary: ['The AVR regulates voltage; the CPU processes instructions, and RAM is temporary memory.', 'The HDD stores files, the motherboard connects components, and the BIOS provides basic setup access.', 'The PSU converts AC to low-voltage DC; PS2, HDMI, and SATA connect peripherals and devices.'],
     questions: [
-      mc('Which device regulates voltage to protect the computer from electrical changes?', ['AVR', 'PSU', 'CPU', 'RAM'], 'AVR', 'An AVR regulates voltage to help protect the computer from electrical changes.'),
-      mc('What is considered the "brain" of the computer?', ['Motherboard', 'CPU', 'RAM', 'HDD'], 'CPU', 'The CPU processes instructions and is commonly called the computer brain.'),
-      fill('RAM is *__* memory, so its contents do not persist after power is off.', ['temporary', 'permanent', 'optical', 'external'], 'temporary', 'RAM is temporary memory; its contents do not persist after power is off.'),
-      mc('Which component is the main storage device where files like those on the Desktop are stored?', ['Hard Disk Drive (HDD)', 'RAM', 'ROM', 'CMOS'], 'Hard Disk Drive (HDD)', 'The HDD is a main storage device for files.'),
-      mc('What is the main circuit board that connects all other computer parts called?', ['Motherboard', 'System Chassis', 'Expansion Bus', 'CPU Socket'], 'Motherboard', 'The motherboard is the main circuit board connecting computer parts.'),
-      fill('The *__* chip is a ROM chip on the motherboard that allows access to basic computer setup.', ['BIOS', 'CMOS', 'RAM', 'SATA'], 'BIOS', 'The BIOS ROM chip allows access to basic computer setup.'),
-      matching('Match each core component with its main function.', [
-        { left: 'CPU', right: 'Processes instructions' },
-        { left: 'RAM', right: 'Holds temporary working data' },
-        { left: 'HDD', right: 'Stores files and programs' },
-        { left: 'Motherboard', right: 'Connects the computer components' }
-      ]),
-      mc('Which component converts alternating current into low-voltage direct current?', ['Power Supply Unit (PSU)', 'CPU', 'RAM', 'Sound Card'], 'Power Supply Unit (PSU)', 'The PSU converts alternating current to low-voltage direct current.'),
-      matching('Match each connection or component with its purpose.', [
-        { left: 'PS2 port', right: 'Connects a mouse or keyboard with a round plug' },
-        { left: 'HDMI', right: 'Carries digital video and audio' },
-        { left: 'SATA', right: 'Connects storage devices to the motherboard' },
-        { left: 'PSU', right: 'Converts AC into low-voltage DC' }
-      ]),
-      tf('True or False: SATA is a standard used for connecting devices like optical drives and hard drives to the motherboard.', 'True', 'SATA connects storage devices such as hard drives and optical drives to the motherboard.')
+      mc('Which device regulates voltage to protect the computer from electrical changes?', ['AVR', 'PSU', 'CPU', 'RAM']),
+      mc('What is considered the "brain" of the computer?', ['Motherboard', 'CPU', 'RAM', 'HDD']),
+      fill('RAM is *__* memory, so its contents do not persist after power is off.', ['temporary', 'permanent', 'optical', 'external']),
+      mc('Which component is the main storage device where files like those on the Desktop are stored?', ['Hard Disk Drive (HDD)', 'RAM', 'ROM', 'CMOS']),
+      mc('What is the main circuit board that connects all other computer parts called?', ['Motherboard', 'System Chassis', 'Expansion Bus', 'CPU Socket']),
+      fill('The *__* chip is a ROM chip on the motherboard that allows access to basic computer setup.', ['BIOS', 'CMOS', 'RAM', 'SATA']),
+      matching('Match each core component with its main function.', ["CPU","RAM","HDD","Motherboard"], ["Processes instructions","Holds temporary working data","Stores files and programs","Connects the computer components"]),
+      mc('Which component converts alternating current into low-voltage direct current?', ['Power Supply Unit (PSU)', 'CPU', 'RAM', 'Sound Card']),
+      matching('Match each connection or component with its purpose.', ["PS2 port","HDMI","SATA","PSU"], ["Connects a mouse or keyboard with a round plug","Carries digital video and audio","Connects storage devices to the motherboard","Converts AC into low-voltage DC"]),
+      tf('True or False: SATA is a standard used for connecting devices like optical drives and hard drives to the motherboard.')
     ]
   },
   {
@@ -123,26 +98,16 @@ const lessons = [
     description: 'Read common diagram symbols and basic binary values.',
     summary: ['Flowcharts show process steps: terminators mark start/end, diamonds decisions, rectangles actions, and parallelograms input/output.', 'Schematic diagrams show abstract system elements; layout plans arrange equipment in a workspace.', 'One byte contains 8 bits. Decimal 5 is written as 0101 in binary.'],
     questions: [
-      mc('What is a diagram called that shows the steps of a process using shapes and arrows?', ['Flowchart', 'Block Diagram', 'Layout Plan', 'Loop Diagram'], 'Flowchart', 'A flowchart shows process steps using symbols and arrows.'),
-      matching('Match each flowchart symbol with its purpose.', [
-        { left: 'Terminator (oval)', right: 'Marks the start or end' },
-        { left: 'Diamond', right: 'Shows a decision branch' },
-        { left: 'Rectangle', right: 'Shows a process or action' },
-        { left: 'Parallelogram', right: 'Shows input or output' }
-      ]),
-      mc('Which flowchart symbol represents a decision with a Yes/No answer?', ['Diamond', 'Rectangle', 'Small Circle', 'Arrow Line'], 'Diamond', 'A diamond represents a decision, often with Yes/No branches.'),
-      mc('Which flowchart symbol shows instructions or actions?', ['Rectangle (Process)', 'Diamond', 'Parallelogram', 'Small Circle'], 'Rectangle (Process)', 'A rectangle represents a process or action.'),
-      fill('A flowchart *__* represents input and output.', ['parallelogram', 'diamond', 'rectangle', 'small circle'], 'parallelogram', 'A parallelogram represents input and output in a flowchart.'),
-      fill('The small circle symbol in a flowchart is also called a *__*.', ['connector', 'terminator', 'process', 'decision'], 'connector', 'A small circle connects separated parts of a flowchart.'),
-      matching('Match each diagram type with what it communicates.', [
-        { left: 'Flowchart', right: 'Steps in a process using symbols and arrows' },
-        { left: 'Schematic diagram', right: 'Abstract, symbolic system elements' },
-        { left: 'Layout plan', right: 'Equipment placement in a workplace' },
-        { left: 'Block diagram', right: 'High-level functional parts of a system' }
-      ]),
-      mc('Which tool is used to arrange a workplace and show how computers should be located?', ['Layout Plan', 'Loop Diagram', 'Chart', 'Flowchart'], 'Layout Plan', 'A layout plan shows how equipment is arranged in a workplace.'),
-      mc('How many bits make up one byte?', ['4', '8', '16', '2'], '8', 'One byte is made up of 8 bits.'),
-      mc('What is the binary representation of the decimal number 5?', ['0011', '0100', '0101', '0010'], '0101', 'Decimal 5 is 0101 in four-bit binary representation.')
+      mc('What is a diagram called that shows the steps of a process using shapes and arrows?', ['Flowchart', 'Block Diagram', 'Layout Plan', 'Loop Diagram']),
+      matching('Match each flowchart symbol with its purpose.', ["Terminator (oval)","Diamond","Rectangle","Parallelogram"], ["Marks the start or end","Shows a decision branch","Shows a process or action","Shows input or output"]),
+      mc('Which flowchart symbol represents a decision with a Yes/No answer?', ['Diamond', 'Rectangle', 'Small Circle', 'Arrow Line']),
+      mc('Which flowchart symbol shows instructions or actions?', ['Rectangle (Process)', 'Diamond', 'Parallelogram', 'Small Circle']),
+      fill('A flowchart *__* represents input and output.', ['parallelogram', 'diamond', 'rectangle', 'small circle']),
+      fill('The small circle symbol in a flowchart is also called a *__*.', ['connector', 'terminator', 'process', 'decision']),
+      matching('Match each diagram type with what it communicates.', ["Flowchart","Schematic diagram","Layout plan","Block diagram"], ["Steps in a process using symbols and arrows","Abstract, symbolic system elements","Equipment placement in a workplace","High-level functional parts of a system"]),
+      mc('Which tool is used to arrange a workplace and show how computers should be located?', ['Layout Plan', 'Loop Diagram', 'Chart', 'Flowchart']),
+      mc('How many bits make up one byte?', ['4', '8', '16', '2']),
+      mc('What is the binary representation of the decimal number 5?', ['0011', '0100', '0101', '0010'])
     ]
   },
   {
@@ -151,26 +116,16 @@ const lessons = [
     description: 'Learn network connections, network types, and common topologies.',
     summary: ['Computer networks connect devices so they can communicate and share resources.', 'Networks can be peer-to-peer or client/server; connections include wireless and wired media such as twisted pair.', 'LANs cover a building or campus; star and bus topologies each have distinct failure risks.'],
     questions: [
-      mc('What is a computer network?', ['A single computer running multiple programs', 'Multiple computers connected to share resources and communicate with one another', 'A type of software for editing documents', 'A device that only connects to the internet'], 'Multiple computers connected to share resources and communicate with one another', 'A computer network connects devices so they can share resources and communicate.'),
-      fill('A *__* connection uses communication links without a physical network cable.', ['wireless', 'twisted-pair', 'coaxial', 'fiber-optic'], 'wireless', 'Wireless links, such as satellite connections, do not use a physical network cable.'),
-      matching('Match each network type with its defining feature.', [
-        { left: 'Peer-to-Peer (P2P)', right: 'Each device can act as client and server' },
-        { left: 'Client/Server', right: 'A central server manages network services' },
-        { left: 'LAN', right: 'Covers a building or campus' },
-        { left: 'WAN', right: 'Connects networks across large geographic areas' }
-      ]),
-      mc('A Client/Server network is best described as:', ['An equal network with no central authority', 'An organized network with a central server managing everything', 'A network limited to under 10 devices', 'A network with no scalability'], 'An organized network with a central server managing everything', 'A client/server network uses a central server to manage network services.'),
-      mc('What does a Codec do?', ['Extends signal distance for campus networks', 'Converts digital to analog signals', 'Compresses/decompresses video or audio, such as for Zoom calls', 'Manages a central server'], 'Compresses/decompresses video or audio, such as for Zoom calls', 'A codec compresses and decompresses digital audio or video.'),
-      fill('Cat5e and Cat6 network cables use *__* pairs of wires.', ['twisted', 'coaxial', 'fiber', 'parallel'], 'twisted', 'Cat5e and Cat6 are twisted-pair cables.'),
-      mc('A LAN (Local Area Network) typically covers:', ['An entire country', 'A single building or campus', 'An entire city', 'The whole world'], 'A single building or campus', 'A LAN typically covers a limited local area such as a building or campus.'),
-      mc('Which network type is described as the largest WAN and uses telecom infrastructure?', ['LAN', 'MAN', 'The Internet', 'P2P'], 'The Internet', 'The Internet is the largest WAN and relies on telecommunications infrastructure.'),
-      matching('Match each topology with its failure risk.', [
-        { left: 'Star topology', right: 'A central hub failure disrupts connected devices' },
-        { left: 'Bus topology', right: 'A break in the main cable can disrupt the network' },
-        { left: 'Ring topology', right: 'A break can interrupt the circular path' },
-        { left: 'Mesh topology', right: 'Multiple paths can provide alternate routes' }
-      ]),
-      mc('What is a key disadvantage of Bus topology?', ['It requires a central hub', 'A cable break disrupts the entire network', 'It cannot connect more than 2 devices', 'It always uses fiber optic cable'], 'A cable break disrupts the entire network', 'A break in the main bus cable can disrupt the entire network.')
+      mc('What is a computer network?', ['A single computer running multiple programs', 'Multiple computers connected to share resources and communicate with one another', 'A type of software for editing documents', 'A device that only connects to the internet']),
+      fill('A *__* connection uses communication links without a physical network cable.', ['wireless', 'twisted-pair', 'coaxial', 'fiber-optic']),
+      matching('Match each network type with its defining feature.', ["Peer-to-Peer (P2P)","Client/Server","LAN","WAN"], ["Each device can act as client and server","A central server manages network services","Covers a building or campus","Connects networks across large geographic areas"]),
+      mc('A Client/Server network is best described as:', ['An equal network with no central authority', 'An organized network with a central server managing everything', 'A network limited to under 10 devices', 'A network with no scalability']),
+      mc('What does a Codec do?', ['Extends signal distance for campus networks', 'Converts digital to analog signals', 'Compresses/decompresses video or audio, such as for Zoom calls', 'Manages a central server']),
+      fill('Cat5e and Cat6 network cables use *__* pairs of wires.', ['twisted', 'coaxial', 'fiber', 'parallel']),
+      mc('A LAN (Local Area Network) typically covers:', ['An entire country', 'A single building or campus', 'An entire city', 'The whole world']),
+      mc('Which network type is described as the largest WAN and uses telecom infrastructure?', ['LAN', 'MAN', 'The Internet', 'P2P']),
+      matching('Match each topology with its failure risk.', ["Star topology","Bus topology","Ring topology","Mesh topology"], ["A central hub failure disrupts connected devices","A break in the main cable can disrupt the network","A break can interrupt the circular path","Multiple paths can provide alternate routes"]),
+      mc('What is a key disadvantage of Bus topology?', ['It requires a central hub', 'A cable break disrupts the entire network', 'It cannot connect more than 2 devices', 'It always uses fiber optic cable'])
     ]
   }
 ];
@@ -203,16 +158,27 @@ function shuffleItems(items) {
   return shuffled;
 }
 
-function prepareQuestions(lesson) {
+function prepareQuestions(lesson, randomizeChoices = false) {
   return lesson.questions.map(question => {
     const type = question.type || 'multiple-choice';
     if (type === 'multiple-choice') {
-      return { ...question, type, options: lesson.preserveOptionOrder ? [...question.options] : shuffleItems(question.options) };
+      const options = [...(question.options || [])];
+      return {
+        ...question,
+        type,
+        options: randomizeChoices || !lesson.preserveOptionOrder ? shuffleItems(options) : options
+      };
     }
     if (type === 'fill-blank') {
-      return { ...question, type, choices: shuffleItems(question.choices || question.options || []) };
+      const choices = question.choices || question.options || [];
+      return { ...question, type, choices: shuffleItems(choices) };
     }
-    if (type === 'matching') return { ...question, type, pairs: question.pairs.map(pair => ({ ...pair })) };
+    if (type === 'matching') return {
+      ...question,
+      type,
+      left: shuffleItems(question.left),
+      right: shuffleItems(question.right)
+    };
     return { ...question, type: 'multiple-choice', options: [...(question.options || [])] };
   });
 }
@@ -273,9 +239,11 @@ let celebrationActive = false;
 let matchingResetTimer = null;
 let proofCode = '';
 let activeAttemptWasReplay = false;
+let lessonAttemptSessionId = null;
 let closeLessonTimer = null;
 let activeGameMode = 'lesson';
-let trainingMode = false;
+let trainingSessionId = null;
+let trainingQuestionFinished = false;
 let timedSessionId = null;
 let timedDeadline = null;
 let timedTimer = null;
@@ -304,11 +272,16 @@ function toast(message) {
   $('#toast-message').textContent = message;
   $('.toast').classList.add('show');
   clearTimeout(window.toastTimer);
-  window.toastTimer = setTimeout(() => $('.toast').classList.remove('show'), 2800);
+  window.toastTimer = setTimeout(() => $('.toast').classList.remove('show'), 2200);
 }
 
 function updateDate() {
-  $('#page-kicker').textContent = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date());
+  $('#page-kicker').textContent = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(new Date());
 }
 
 function unlocked(index) { return index === 0 || state.passed.includes(index - 1); }
@@ -528,9 +501,10 @@ function openLesson(index) {
   $('#celebration-overlay').hidden = true;
   $('#lesson-flow').classList.remove('is-closing');
   activeLessonIndex = index;
+  lessonAttemptSessionId = null;
+  trainingSessionId = null;
   activeAttemptWasReplay = state.passed.includes(index);
   activeGameMode = 'lesson';
-  trainingMode = false;
   activeQuestionIndex = 0;
   activeQuestions = [];
   selectedAnswer = null;
@@ -564,13 +538,11 @@ function closeLesson() {
 
 function renderModePicker() {
   const lesson = lessons[activeLessonIndex];
-  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="flow-lesson-icon">${lesson.icon}</div><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description}</p><div class="mode-picker"><button class="mode-card" type="button" data-training-mode><strong>Train</strong><span>Review every question with the answers and explanations from this lesson.</span><small>No points are awarded.</small></button><button class="mode-card" type="button" data-play-mode><strong>Play</strong><span>Take the level quiz and earn points for correct answers.</span><small>Pass with 7 out of 10 correct.</small></button></div><div class="flow-footer"><span>Choose how you want to learn.</span><button class="text-button" type="button" data-back-lessons>Back to levels</button></div>`;
+  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="flow-lesson-icon">${lesson.icon}</div><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description}</p><div class="mode-picker"><button class="mode-card" type="button" data-training-mode><strong>Train</strong><span>Practice each question, get a hint when you miss, and learn from feedback.</span><small>No points are awarded.</small></button><button class="mode-card" type="button" data-play-mode><strong>Play</strong><span>Take the level quiz and earn points for correct answers.</span><small>Pass with 7 out of 10 correct.</small></button></div><div class="flow-footer"><span>Choose how you want to learn.</span><button class="text-button" type="button" data-back-lessons>Back to levels</button></div>`;
   $('[data-training-mode]').addEventListener('click', () => {
-    trainingMode = true;
     renderTraining();
   });
   $('[data-play-mode]').addEventListener('click', () => {
-    trainingMode = false;
     renderSummary();
   });
   $('[data-back-lessons]').addEventListener('click', () => { closeLesson(); setView('lessons'); });
@@ -578,21 +550,39 @@ function renderModePicker() {
 
 function renderTraining() {
   const lesson = lessons[activeLessonIndex];
-  const cards = lesson.questions.map((question, index) => {
-    const answer = question.type === 'matching'
-      ? `<ul class="training-matches">${question.pairs.map(pair => `<li><strong>${pair.left}</strong><span>${pair.right}</span></li>`).join('')}</ul>`
-      : `<p class="training-answer"><strong>Answer:</strong> ${question.answer}</p>`;
-    const explanation = question.explanation || (question.type === 'matching'
-      ? 'The matching pairs above are the lesson information provided for this question.'
-      : '');
-    return `<article class="training-question"><p class="eyebrow">QUESTION ${index + 1}</p><h2>${question.prompt.replace(/\*__\*/g, '_____')}</h2>${answer}${explanation ? `<p class="training-explanation"><strong>Explanation:</strong> ${explanation}</p>` : '<p class="training-missing">No explanation is provided for this question yet.</p>'}</article>`;
-  }).join('');
-  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">TRAINING · LEVEL ${activeLessonIndex + 1}</p><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description} Review the existing question answers and lesson information below. Training does not award points.</p><div class="training-list">${cards}</div><div class="flow-footer"><button class="text-button" type="button" data-back-mode>Back</button><button class="primary-button" type="button" data-start-play>Start Play <span>→</span></button></div>`;
+  activeGameMode = 'training';
+  activeQuestions = prepareQuestions({ questions: shuffleItems(lesson.questions) }, true);
+  activeQuestionIndex = 0;
+  trainingQuestionFinished = false;
+  void beginTrainingQuestion();
+}
+
+async function beginTrainingQuestion() {
+  const question = activeQuestions[activeQuestionIndex];
+  if (!supabaseClient) {
+    toast('Secure answer checking is unavailable. Connect Supabase to use Train mode.');
+    renderModePicker();
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
+      body: { action: 'start_training', question_id: question.id }
+    });
+    if (error) throw error;
+    trainingSessionId = data.session_id;
+    trainingQuestionFinished = false;
+    renderQuestion();
+  } catch (error) {
+    toast(`Train mode could not start: ${error.message}`);
+    renderModePicker();
+  }
+}
+
+function finishTraining() {
+  const lesson = lessons[activeLessonIndex];
+  $('#lesson-flow-content').innerHTML = `<p class="eyebrow">TRAINING COMPLETE · LEVEL ${activeLessonIndex + 1}</p><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">Practice complete. No points, XP, streak progress, or level unlocks were awarded.</p><div class="flow-footer"><button class="text-button" type="button" data-back-mode>Back</button><button class="primary-button" type="button" data-finish-training>Done</button></div>`;
   $('[data-back-mode]').addEventListener('click', renderModePicker);
-  $('[data-start-play]').addEventListener('click', () => {
-    trainingMode = false;
-    renderSummary();
-  });
+  $('[data-finish-training]').addEventListener('click', closeLesson);
 }
 
 async function startTimedChallenge() {
@@ -658,7 +648,7 @@ async function finishTimedChallenge() {
   let submissionError = '';
   try {
     const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
-      body: { action: 'submit_timed', session_id: timedSessionId, answers: submittedAnswers }
+      body: { action: 'submit_timed', session_id: timedSessionId }
     });
     if (error) throw error;
     result = data;
@@ -685,6 +675,21 @@ function renderSummary() {
   const lesson = lessons[activeLessonIndex];
   $('#lesson-flow-content').innerHTML = `<p class="eyebrow">PLAY · LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="flow-lesson-icon">${lesson.icon}</div><h1 id="flow-title">${lesson.title}</h1><p class="flow-lead">${lesson.description}</p><ul class="summary-points">${lesson.summary.map(point => `<li>${point}</li>`).join('')}</ul><div class="flow-footer"><span>10 questions · Pass with 7 correct</span><button class="primary-button" type="button" data-begin-quiz>Begin Level <span>→</span></button></div>`;
   $('[data-begin-quiz]').addEventListener('click', () => {
+    void beginLessonAttempt(lesson);
+  });
+}
+
+async function beginLessonAttempt(lesson) {
+  if (!supabaseClient) {
+    toast('Secure answer checking is unavailable. Connect Supabase to play this level.');
+    return;
+  }
+  try {
+    const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
+      body: { action: 'start_lesson', lesson_number: activeLessonIndex + 1 }
+    });
+    if (error) throw error;
+    lessonAttemptSessionId = data.session_id;
     activeQuestions = prepareQuestions(lesson);
     activeGameMode = 'lesson';
     questionResults = [];
@@ -693,7 +698,9 @@ function renderSummary() {
     activeQuestionIndex = 0;
     submittedAnswers = [];
     renderQuestion();
-  });
+  } catch (error) {
+    toast(`Level could not start: ${error.message}`);
+  }
 }
 
 function renderQuestion() {
@@ -705,10 +712,11 @@ function renderQuestion() {
   const question = activeQuestions[activeQuestionIndex];
   const progress = ((activeQuestionIndex + 1) / activeQuestions.length) * 100;
   const timed = activeGameMode === 'timed';
+  const training = activeGameMode === 'training';
   const lesson = timed ? null : lessons[activeLessonIndex];
   const header = timed
     ? `<p class="eyebrow">TIMED CHALLENGE</p><div class="quiz-heading"><h1 id="flow-title">Answer as many as you can</h1><strong class="timed-countdown" id="timed-countdown" role="timer" aria-label="Time remaining">1:00</strong></div><p class="timed-progress">${submittedAnswers.length} answered · ${answerScore} correct</p>`
-    : `<p class="eyebrow">LEVEL ${activeLessonIndex + 1} · ${lesson.category}</p><div class="quiz-heading"><h1 id="flow-title">${lesson.title}</h1><span>Question ${activeQuestionIndex + 1} / ${activeQuestions.length}</span></div><div class="quiz-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="${activeQuestions.length}" aria-valuenow="${activeQuestionIndex + 1}"><span style="width:${progress}%"></span></div>`;
+    : `<p class="eyebrow">${training ? 'TRAIN' : 'LEVEL'} ${activeLessonIndex + 1} · ${lesson.category}</p><div class="quiz-heading"><h1 id="flow-title">${lesson.title}</h1><span>Question ${activeQuestionIndex + 1} / ${activeQuestions.length}</span></div><div class="quiz-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="${activeQuestions.length}" aria-valuenow="${activeQuestionIndex + 1}"><span style="width:${progress}%"></span></div>`;
   const questionType = question.type || 'multiple-choice';
   const renderers = {
     'multiple-choice': renderMultipleChoiceQuestion,
@@ -724,19 +732,20 @@ function renderQuestion() {
 
 function renderMultipleChoiceQuestion(question) {
   const nextLabel = activeQuestionIndex === activeQuestions.length - 1 && activeGameMode === 'lesson' ? 'See results' : 'Next question';
-  return `<h2 class="question-prompt">${question.prompt}</h2><div class="answer-list" role="group" aria-label="Answer choices">${question.options.map((option, index) => `<button class="answer-choice" type="button" data-answer-index="${index}"><span class="choice-letter">${String.fromCharCode(65 + index)}</span><span>${option}</span></button>`).join('')}</div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span>${answerScore} correct so far</span><button class="primary-button" type="button" data-next-question disabled>${nextLabel} <span>→</span></button></div>`;
+  return `<h2 class="question-prompt">${question.prompt}</h2><div class="answer-list" role="group" aria-label="Answer choices">${question.options.map((option, index) => `<button class="answer-choice" type="button" data-answer-index="${index}"><span class="choice-letter">${String.fromCharCode(65 + index)}</span><span>${option}</span></button>`).join('')}</div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span>${activeGameMode === 'training' ? 'Practice · no points' : `${answerScore} correct so far`}</span><button class="primary-button" type="button" data-next-question disabled>${activeGameMode === 'training' ? 'Next question' : nextLabel} <span>→</span></button></div>`;
 }
 
 function renderFillBlankQuestion(question) {
   const prompt = question.prompt.replace('*__*', '<button class="blank-slot" type="button" data-blank-slot aria-label="Remove selected word">Choose a word</button>');
-  return `<h2 class="question-prompt fill-prompt">${prompt}</h2><div class="fill-choices" role="group" aria-label="Word choices">${question.choices.map((word, index) => `<button class="fill-word-choice" type="button" data-fill-choice="${index}">${word}</button>`).join('')}</div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span>${answerScore} correct so far</span><button class="primary-button" type="button" data-check-fill disabled>Check</button></div>`;
+  const scoreLabel = activeGameMode === 'training' ? 'Practice · no points' : `${answerScore} correct so far`;
+  return `<h2 class="question-prompt fill-prompt">${prompt}</h2><div class="fill-choices" role="group" aria-label="Word choices">${question.choices.map((word, index) => `<button class="fill-word-choice" type="button" data-fill-choice="${index}">${word}</button>`).join('')}</div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span>${scoreLabel}</span><button class="primary-button" type="button" data-check-fill disabled>Check</button></div>`;
 }
 
 function renderMatchingQuestion(question) {
-  const leftItems = shuffleItems(question.pairs.map((pair, index) => ({ value: pair.left, index })));
-  const rightItems = shuffleItems(question.pairs.map((pair, index) => ({ value: pair.right, index })));
-  matchingState = { selectedLeft: null, matched: new Set(), mistakes: 0, resolving: false, completed: false, history: [] };
-  return `<h2 class="question-prompt">${question.prompt}</h2><div class="matching-columns"><div class="matching-column" role="group" aria-label="Terms">${leftItems.map(item => `<button class="matching-choice" type="button" data-match-side="left" data-pair-index="${item.index}">${item.value}</button>`).join('')}</div><div class="matching-column" role="group" aria-label="Definitions">${rightItems.map(item => `<button class="matching-choice" type="button" data-match-side="right" data-pair-index="${item.index}">${item.value}</button>`).join('')}</div></div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span data-match-status>0 of ${question.pairs.length} matched · 0 mistakes</span><button class="primary-button" type="button" data-match-continue disabled>Match all pairs</button></div>`;
+  const leftItems = question.left.map(value => ({ value }));
+  const rightItems = question.right.map(value => ({ value }));
+  matchingState = { selectedLeft: null, matched: new Set(), matchedRight: new Set(), mistakes: 0, resolving: false, completed: false, history: [] };
+  return `<h2 class="question-prompt">${question.prompt}</h2><div class="matching-columns"><div class="matching-column" role="group" aria-label="Terms">${leftItems.map((item, index) => `<button class="matching-choice" type="button" data-match-side="left" data-pair-index="${index}">${item.value}</button>`).join('')}</div><div class="matching-column" role="group" aria-label="Definitions">${rightItems.map((item, index) => `<button class="matching-choice" type="button" data-match-side="right" data-pair-index="${index}">${item.value}</button>`).join('')}</div></div><div class="answer-feedback" id="answer-feedback" aria-live="polite"></div><div class="flow-footer quiz-footer"><span data-match-status>0 of ${question.left.length} matched · 0 mistakes</span><button class="primary-button" type="button" data-match-continue disabled>Match all pairs</button></div>`;
 }
 
 function bindMultipleChoiceQuestion(question) {
@@ -755,6 +764,7 @@ function bindFillBlankQuestion(question) {
     const blank = $('[data-blank-slot]');
     blank.textContent = question.choices[selectedFillWord];
     blank.classList.add('has-word');
+    blank.classList.remove('is-wrong');
     $('[data-check-fill]').disabled = false;
   }));
   $('[data-blank-slot]').addEventListener('click', () => {
@@ -774,17 +784,45 @@ function bindMatchingQuestion(question) {
 }
 
 function recordQuestionResult(isCorrect, answer) {
+  if (activeGameMode === 'training') return;
   questionResults.push(isCorrect);
-  if (!trainingMode) {
-    submittedAnswers.push({ question_id: activeQuestions[activeQuestionIndex].id, answer });
-  }
+  submittedAnswers.push({ question_id: activeQuestions[activeQuestionIndex].id, answer });
   if (isCorrect) {
     answerScore += 1;
     correctStreak += 1;
   } else correctStreak = 0;
 }
 
-function chooseAnswer(optionIndex) {
+async function checkSelectedAnswer(answer) {
+  const question = activeQuestions[activeQuestionIndex];
+  if (!supabaseClient) throw new Error('Secure answer checking is unavailable. Connect Supabase and try again.');
+  const body = activeGameMode === 'training'
+    ? { action: 'check_training', session_id: trainingSessionId, question_id: question.id, answer }
+    : {
+      action: 'check_answer',
+      session_id: activeGameMode === 'timed' ? timedSessionId : lessonAttemptSessionId,
+      mode: activeGameMode,
+      question_id: question.id,
+      answer
+    };
+  const { data, error } = await supabaseClient.functions.invoke('benchmark-game', { body });
+  if (error) throw error;
+  return data;
+}
+
+function showTrainingHint(message = 'Think about the key idea in the lesson summary, then try again.') {
+  const feedback = $('#answer-feedback');
+  feedback.className = 'answer-feedback show feedback-wrong';
+  feedback.textContent = `Incorrect. Hint: ${message}`;
+}
+
+function showTrainingReveal(data, answer) {
+  trainingQuestionFinished = true;
+  answerLocked = true;
+  showAnswerFeedback(false, `Incorrect. The correct answer is ${answer}. ${data.explanation}`);
+}
+
+async function chooseAnswer(optionIndex) {
   if (selectedAnswer !== null || answerLocked) return;
   if (activeGameMode === 'timed' && Date.now() >= timedDeadline) {
     void finishTimedChallenge();
@@ -792,23 +830,48 @@ function chooseAnswer(optionIndex) {
   }
   const question = activeQuestions[activeQuestionIndex];
   selectedAnswer = question.options[optionIndex];
-  const isCorrect = selectedAnswer.toLocaleLowerCase() === question.answer.toLocaleLowerCase();
   answerLocked = true;
-  recordQuestionResult(isCorrect, selectedAnswer);
-  $$('.answer-choice').forEach((button, index) => {
-    const option = question.options[index];
-    button.disabled = true;
-    if (option.toLocaleLowerCase() === question.answer.toLocaleLowerCase()) button.classList.add('is-correct');
-    if (index === optionIndex && !isCorrect) button.classList.add('is-wrong');
-  });
-  const feedback = $('#answer-feedback');
-  feedback.className = `answer-feedback show ${isCorrect ? 'feedback-correct' : 'feedback-wrong'}`;
-  feedback.textContent = isCorrect ? `Correct! ${question.explanation}` : `Not quite. Correct answer: ${question.answer}. ${question.explanation}`;
-  playSound(isCorrect ? 'correct' : 'wrong');
-  $('[data-next-question]').disabled = false;
+  const choices = $$('.answer-choice');
+  choices.forEach(button => { button.disabled = true; });
+  try {
+    const result = await checkSelectedAnswer(selectedAnswer);
+    if (activeGameMode === 'training') {
+      if (result.correct) {
+        trainingQuestionFinished = true;
+        choices[optionIndex].classList.add('is-correct');
+        showAnswerFeedback(true, `Correct! ${result.explanation}`);
+      } else if (result.revealed) {
+        choices.forEach((button, index) => {
+          if (question.options[index].toLocaleLowerCase() === String(result.answer).toLocaleLowerCase()) button.classList.add('is-correct');
+        });
+        showTrainingReveal(result, result.answer);
+      } else {
+        choices[optionIndex].classList.add('is-wrong');
+        selectedAnswer = null;
+        answerLocked = false;
+        choices.forEach(button => { button.disabled = false; });
+        showTrainingHint(result.hint);
+      }
+    } else {
+      recordQuestionResult(Boolean(result.correct), selectedAnswer);
+      choices.forEach((button, index) => {
+        if (result.correct && index === optionIndex) button.classList.add('is-correct');
+        if (!result.correct && index === optionIndex) button.classList.add('is-wrong');
+      });
+      showAnswerFeedback(Boolean(result.correct), result.correct
+        ? `Correct! ${result.explanation}`
+        : 'Incorrect. Review the lesson material before your next attempt.');
+    }
+    playSound(result.correct ? 'correct' : 'wrong');
+  } catch (error) {
+    selectedAnswer = null;
+    answerLocked = false;
+    choices.forEach(button => { button.disabled = false; });
+    toast(`Answer could not be checked: ${error.message}`);
+  }
 }
 
-function submitFillAnswer(question) {
+async function submitFillAnswer(question) {
   if (selectedFillWord === null || answerLocked) return;
   if (activeGameMode === 'timed' && Date.now() >= timedDeadline) {
     void finishTimedChallenge();
@@ -816,28 +879,50 @@ function submitFillAnswer(question) {
   }
   answerLocked = true;
   const selectedWord = question.choices[selectedFillWord];
-  const isCorrect = selectedWord.toLocaleLowerCase() === question.answer.toLocaleLowerCase();
-  recordQuestionResult(isCorrect, selectedWord);
   const blank = $('[data-blank-slot]');
-  blank.disabled = true;
-  blank.classList.add(isCorrect ? 'is-correct' : 'is-wrong');
-  $$('.fill-word-choice').forEach((button, index) => {
-    button.disabled = true;
-    if (question.choices[index].toLocaleLowerCase() === question.answer.toLocaleLowerCase()) button.classList.add('is-correct');
-    if (index === selectedFillWord && !isCorrect) button.classList.add('is-wrong');
-  });
-  showAnswerFeedback(isCorrect, isCorrect ? `Correct! ${question.explanation}` : `Correct answer: ${question.answer}. ${question.explanation}`);
-  playSound(isCorrect ? 'correct' : 'wrong');
+  const choices = $$('.fill-word-choice');
+  choices.forEach(button => { button.disabled = true; });
+  try {
+    const result = await checkSelectedAnswer(selectedWord);
+    if (activeGameMode === 'training') {
+      if (result.correct) {
+        trainingQuestionFinished = true;
+        blank.classList.add('is-correct');
+        showAnswerFeedback(true, `Correct! ${result.explanation}`);
+      } else if (result.revealed) {
+        blank.classList.add('is-wrong');
+        showTrainingReveal(result, result.answer);
+      } else {
+        blank.classList.add('is-wrong');
+        selectedFillWord = null;
+        answerLocked = false;
+        choices.forEach(button => { button.disabled = false; });
+        showTrainingHint(result.hint);
+      }
+    } else {
+      recordQuestionResult(Boolean(result.correct), selectedWord);
+      blank.classList.add(result.correct ? 'is-correct' : 'is-wrong');
+      showAnswerFeedback(Boolean(result.correct), result.correct
+        ? `Correct! ${result.explanation}`
+        : 'Incorrect. Review the lesson material before your next attempt.');
+    }
+    playSound(result.correct ? 'correct' : 'wrong');
+  } catch (error) {
+    answerLocked = false;
+    choices.forEach(button => { button.disabled = false; });
+    toast(`Answer could not be checked: ${error.message}`);
+  }
 }
 
-function chooseMatch(button, question) {
+async function chooseMatch(button, question) {
   if (activeGameMode === 'timed' && Date.now() >= timedDeadline) {
     void finishTimedChallenge();
     return;
   }
   const side = button.dataset.matchSide;
   const pairIndex = Number(button.dataset.pairIndex);
-  if (answerLocked || matchingState.resolving || matchingState.completed || matchingState.matched.has(pairIndex)) return;
+  if (answerLocked || matchingState.resolving || matchingState.completed
+    || (side === 'left' ? matchingState.matched.has(pairIndex) : matchingState.matchedRight.has(pairIndex))) return;
   if (side === 'left') {
     matchingState.selectedLeft = pairIndex;
     $$('[data-match-side="left"]').forEach(item => item.classList.toggle('is-selected', item === button));
@@ -845,46 +930,71 @@ function chooseMatch(button, question) {
   }
   if (matchingState.selectedLeft === null) return;
   const leftIndex = matchingState.selectedLeft;
-  matchingState.history.push([leftIndex, pairIndex]);
+  const left = question.left[leftIndex];
+  const right = question.right[pairIndex];
   const leftButton = $(`[data-match-side="left"][data-pair-index="${leftIndex}"]`);
-  if (leftIndex === pairIndex) {
-    matchingState.matched.add(pairIndex);
-    leftButton.classList.remove('is-selected');
-    leftButton.classList.add('is-correct');
-    button.classList.add('is-correct');
-    matchingState.selectedLeft = null;
-    playSound('correct');
-    updateMatchingProgress(question);
-    return;
-  }
-  matchingState.mistakes += 1;
   matchingState.resolving = true;
-  leftButton.classList.add('is-wrong');
-  button.classList.add('is-wrong');
-  playSound('wrong');
-  updateMatchingProgress(question);
-  matchingResetTimer = setTimeout(() => {
-    if (!matchingState || matchingState.completed) return;
-    leftButton.classList.remove('is-selected', 'is-wrong');
-    button.classList.remove('is-wrong');
+  try {
+    const result = await checkSelectedAnswer({ pair: { left, right } });
+    matchingState.history.push({ left, right });
+    matchingState.selectedLeft = null;
+    if (result.correct) {
+      matchingState.matched.add(leftIndex);
+      matchingState.matchedRight.add(pairIndex);
+      leftButton.classList.remove('is-selected');
+      leftButton.classList.add('is-correct');
+      button.classList.add('is-correct');
+      button.disabled = true;
+      playSound('correct');
+      matchingState.resolving = false;
+      updateMatchingProgress(question, result.explanation);
+      return;
+    }
+    matchingState.mistakes += 1;
+    leftButton.classList.remove('is-selected');
+    leftButton.classList.add('is-wrong');
+    button.classList.add('is-wrong');
+    playSound('wrong');
+    if (activeGameMode === 'training' && result.revealed) {
+      const answer = Object.entries(result.answer).map(([term, definition]) => `${term} → ${definition}`).join('; ');
+      showTrainingReveal(result, answer);
+      matchingState.completed = true;
+      $$('.matching-choice').forEach(item => { item.disabled = true; });
+      return;
+    }
+    if (activeGameMode === 'training') showTrainingHint(result.hint);
+    else {
+      const feedback = $('#answer-feedback');
+      feedback.className = 'answer-feedback show feedback-wrong';
+      feedback.textContent = 'That pair is not correct. Try another match.';
+    }
+    matchingResetTimer = setTimeout(() => {
+      if (!matchingState || matchingState.completed) return;
+      leftButton.classList.remove('is-wrong');
+      button.classList.remove('is-wrong');
+      matchingState.resolving = false;
+    }, 520);
+    $('[data-match-status]').textContent = `${matchingState.matched.size} of ${question.left.length} matched · ${matchingState.mistakes} mistake${matchingState.mistakes === 1 ? '' : 's'}`;
+  } catch (error) {
     matchingState.selectedLeft = null;
     matchingState.resolving = false;
-  }, 520);
+    toast(`Answer could not be checked: ${error.message}`);
+  }
 }
 
-function updateMatchingProgress(question) {
+function updateMatchingProgress(question, explanation) {
   const count = matchingState.matched.size;
-  $('[data-match-status]').textContent = `${count} of ${question.pairs.length} matched · ${matchingState.mistakes} mistake${matchingState.mistakes === 1 ? '' : 's'}`;
-  if (count !== question.pairs.length) return;
+  $('[data-match-status]').textContent = `${count} of ${question.left.length} matched · ${matchingState.mistakes} mistake${matchingState.mistakes === 1 ? '' : 's'}`;
+  if (count !== question.left.length) return;
   matchingState.completed = true;
   answerLocked = true;
   const isCorrect = matchingState.mistakes <= CELEBRATION_CONFIG.matchingMistakeLimit;
   recordQuestionResult(isCorrect, { matches: matchingState.history });
   $$('.matching-choice').forEach(item => { item.disabled = true; });
-  showAnswerFeedback(isCorrect,
-    isCorrect
-      ? 'All pairs matched! Correct!'
-      : `All pairs matched, but there were ${matchingState.mistakes} mistakes. You can miss ${CELEBRATION_CONFIG.matchingMistakeLimit} or fewer.`);
+  if (activeGameMode === 'training') trainingQuestionFinished = true;
+  showAnswerFeedback(isCorrect, isCorrect
+    ? `All pairs matched! ${explanation}`
+    : `All pairs matched, but there were too many mistakes. ${explanation}`);
 }
 
 function showAnswerFeedback(isCorrect, message) {
@@ -892,7 +1002,8 @@ function showAnswerFeedback(isCorrect, message) {
   feedback.className = `answer-feedback show ${isCorrect ? 'feedback-correct' : 'feedback-wrong'}`;
   feedback.textContent = message;
   const footer = $('.quiz-footer');
-  footer.innerHTML = `<span>${answerScore} correct so far</span><button class="primary-button" type="button" data-new-continue>Continue <span>→</span></button>`;
+  const practice = activeGameMode === 'training';
+  footer.innerHTML = `<span>${practice ? 'Practice · no points' : `${answerScore} correct so far`}</span><button class="primary-button" type="button" data-new-continue>${practice ? 'Next question' : 'Continue'} <span>→</span></button>`;
   $('[data-new-continue]').addEventListener('click', () => {
     clearTimeout(timedAdvanceTimer);
     advanceAfterAnswer();
@@ -912,6 +1023,17 @@ function advanceAfterAnswer() {
     }
     activeQuestionIndex += 1;
     renderQuestion();
+    return;
+  }
+  if (activeGameMode === 'training') {
+    if (!trainingQuestionFinished) return;
+    if (activeQuestionIndex === activeQuestions.length - 1) {
+      trainingSessionId = null;
+      finishTraining();
+      return;
+    }
+    activeQuestionIndex += 1;
+    void beginTrainingQuestion();
     return;
   }
   if (activeQuestionIndex === activeQuestions.length - 1) {
@@ -957,6 +1079,7 @@ function continueAfterCelebration() {
 }
 
 async function finishAttempt() {
+  if (activeGameMode !== 'lesson') return;
   const lesson = lessons[activeLessonIndex];
   const passedBefore = state.passed.includes(activeLessonIndex);
   const previousUnlocked = lessons.map((_, index) => unlocked(index));
@@ -964,7 +1087,7 @@ async function finishAttempt() {
   if (state.userId) {
     try {
       const { data, error } = await supabaseClient.functions.invoke('benchmark-game', {
-        body: { action: 'submit_lesson', lesson_index: activeLessonIndex + 1, answers: submittedAnswers }
+        body: { action: 'submit_lesson', lesson_index: activeLessonIndex + 1, session_id: lessonAttemptSessionId }
       });
       if (error) throw error;
       answerScore = Number(data.correct_answers);
