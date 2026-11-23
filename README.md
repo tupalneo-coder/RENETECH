@@ -12,11 +12,11 @@ npm run build
 
 ## Supabase setup
 
-1. Apply `supabase/migrations/20261105000000_benchmark.sql` in the Supabase SQL Editor, or apply the migration with the Supabase CLI.
+1. Apply `supabase/migrations/20261105000000_benchmark.sql` and then `supabase/migrations/20261123000000_leaderboard_training_fix.sql` in the Supabase SQL Editor, or apply both migrations with the Supabase CLI.
 2. Deploy the `benchmark-game` Edge Function:
 
    ```powershell
-   supabase functions deploy benchmark-game
+   npx supabase functions deploy benchmark-game
    ```
 
 3. Configure the function's `SUPABASE_SERVICE_ROLE_KEY` secret in Supabase if the project does not already expose it to Edge Functions. Keep this key server-side.
@@ -27,7 +27,7 @@ npm run build
 
 ## Player features
 
-- Train mode reuses the lesson summaries, questions, answers, explanations, and matching pairs in `app.js`; it never awards points.
+- Train mode sends questions without answer keys to the browser. The Edge Function checks answers, allows one retry with a hint, and reveals an answer and explanation only after a second wrong attempt. It never awards points or progress.
 - Timed Challenge lasts 60 seconds. The Edge Function grades submitted answers, assigns the answer points plus only the highest reached bonus tier, and stores the result.
 - Cosmetic unlock thresholds and available styles are configured in `supabase/functions/_shared/cosmetics.ts`.
 - Avatar artwork stays in the two original 3-by-2 transparent sprite sheets under `assets/avatars`; CSS positions each avatar inside a circular frame.
